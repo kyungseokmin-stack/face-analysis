@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>관상 분석 · 다각도 영상 기반</title>
+<meta name="description" content="고전 관상학 문헌을 근거로, 고개를 돌리며 촬영한 다각도 영상으로 분석합니다. 모든 처리는 기기 안에서만 이루어집니다." />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<header class="app-header">
+  <span class="app-title">관상 분석</span>
+  <span class="app-subtitle">마의상법(麻衣相法), 유장상법(柳莊相法), 신상전편(神相全編) 등 3개 문헌 참조</span>
+</header>
+
+<main>
+
+  <!-- 1. 인트로 -->
+  <section id="screen-intro" class="screen">
+    <div class="card">
+      <h1>얼굴을 다각도로 촬영해<br />전통 관상학으로 풀이합니다</h1>
+      <p class="lead">
+        정지된 사진 한 장이 아니라, 고개를 좌우·상하로 천천히 돌리는 짧은 촬영을 통해
+        여러 각도의 데이터를 함께 분석합니다. 각도를 교차 확인하면 단일 사진보다
+        오차를 줄일 수 있습니다.
+      </p>
+      <ul class="feature-list">
+        <li><span class="feature-icon" aria-hidden="true">📖</span><span class="feature-text">마의상법·유장상법 등 고전 문헌의 삼정·오악·오관·십이궁 틀을 사용</span></li>
+        <li><span class="feature-icon" aria-hidden="true">🎥</span><span class="feature-text">정면 + 좌우 회전 + 상하 기울임, 5단계 짧은 영상 촬영</span></li>
+        <li><span class="feature-icon" aria-hidden="true">🔒</span><span class="feature-text">촬영 영상은 브라우저 밖으로 전송되지 않으며 서버에 저장하지 않음</span></li>
+      </ul>
+      <p class="disclaimer-inline">
+        본 서비스는 전통 문화 콘텐츠이며 과학적으로 검증된 성격·운명 진단이 아닙니다.
+        <a href="privacy.html" id="link-privacy-intro">개인정보·보안 안내 자세히 보기</a>
+      </p>
+      <button id="btn-start" class="btn-primary">시작하기</button>
+    </div>
+  </section>
+
+  <!-- 2. 동의 -->
+  <section id="screen-consent" class="screen" hidden>
+    <div class="card">
+      <h2>촬영 전 확인해주세요</h2>
+      <ul class="consent-list">
+        <li>카메라로 얼굴을 약 10~20초간 촬영하며, <strong>영상·이미지는 이 기기 밖으로 전송되지 않습니다.</strong></li>
+        <li>분석은 전부 이 브라우저 안에서 실행되는 얼굴 인식 모델로 처리됩니다.</li>
+        <li>정면·좌우 회전 촬영 순간의 사진 몇 장은 인포그래픽과 귀 참고 사진을 보여주기 위해 브라우저 메모리에 잠깐 보관되며, <strong>사용자가 직접 "다운로드"를 누를 때만</strong> 이 기기에 저장됩니다.</li>
+        <li>촬영 데이터는 서버에 저장되지 않으며, 창을 닫거나 새로고침하거나 "다시 촬영하기"를 누르면 즉시 사라집니다.</li>
+        <li>만 14세 미만이거나 타인의 얼굴을 무단으로 촬영하는 용도로 사용하지 마십시오.</li>
+        <li>결과는 전통 문화 콘텐츠로, 의료·채용·평가 등 중요한 판단의 근거로 사용할 수 없습니다.</li>
+      </ul>
+      <label class="consent-checkbox-row">
+        <input type="checkbox" id="consent-checkbox" />
+        <span>위 내용을 확인했으며 카메라 사용에 동의합니다</span>
+      </label>
+      <button id="btn-consent-continue" class="btn-primary" disabled>카메라 시작</button>
+      <p class="disclaimer-inline">
+        <a href="privacy.html" id="link-privacy-consent">개인정보·보안 안내 자세히 보기</a>
+      </p>
+    </div>
+  </section>
+
+  <!-- 3. 촬영 -->
+  <section id="screen-capture" class="screen" hidden>
+    <div class="capture-stage">
+      <video id="camera-video" autoplay playsinline muted></video>
+      <div class="face-guide-oval"></div>
+      <div id="hold-ring" class="hold-ring" style="--progress:0"></div>
+    </div>
+    <div id="step-dots" class="step-dots"></div>
+    <p id="step-instruction" class="step-instruction">카메라를 준비하는 중...</p>
+    <p id="step-sub" class="step-sub"></p>
+    <p id="no-face-hint" class="no-face-hint" hidden>얼굴이 잘 보이지 않아요. 밝은 곳에서 카메라 정면을 바라봐 주세요.</p>
+    <p id="close-up-hint" class="close-up-hint" hidden>더 정확한 분석을 위해 얼굴을 화면에 조금 더 크게 채워주세요.</p>
+    <button id="btn-abort-capture" class="btn-secondary">그만하고 처음으로</button>
+  </section>
+
+  <!-- 4. 분석 중 -->
+  <section id="screen-analyzing" class="screen" hidden>
+    <div class="card center">
+      <div class="spinner"></div>
+      <p>촬영된 각도 데이터를 종합해 측정하는 중...</p>
+    </div>
+  </section>
+
+  <!-- 5. 리포트 -->
+  <section id="screen-report" class="screen" hidden>
+    <div class="report-head">
+      <h2>관상 분석 리포트</h2>
+      <p id="report-coverage" class="report-coverage"></p>
+    </div>
+    <div id="infographic-section" class="card infographic-card" hidden>
+      <div id="infographic-preview-wrap" class="infographic-preview-wrap"></div>
+      <button id="btn-download-infographic" class="btn-primary">이미지로 다운로드</button>
+    </div>
+    <div id="report-sections" class="report-sections"></div>
+    <div class="card disclaimer-card">
+      <h3>안내</h3>
+      <div id="report-disclaimer"></div>
+    </div>
+    <div class="report-actions">
+      <button id="btn-restart" class="btn-primary">다시 촬영하기</button>
+      <a href="privacy.html" id="link-privacy-report" class="btn-secondary-link">개인정보·보안 안내</a>
+    </div>
+  </section>
+
+  <!-- 오류 -->
+  <section id="screen-error" class="screen" hidden>
+    <div class="card">
+      <h2 id="error-message">문제가 발생했습니다</h2>
+      <p id="error-detail"></p>
+      <button id="btn-error-restart" class="btn-primary">처음으로</button>
+    </div>
+  </section>
+
+</main>
+
+<footer class="app-footer">
+  <span>모든 얼굴 데이터는 이 기기에서만 처리됩니다.</span>
+</footer>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
