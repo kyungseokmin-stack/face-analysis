@@ -61,18 +61,22 @@
     </div>
   </section>
 
-  <!-- 3. 촬영 -->
+  <!-- 3. 촬영: 카메라 화면 위에 안내를 직접 얹는 풀블리드(전체 폭) 오버레이 레이아웃 -->
   <section id="screen-capture" class="screen" hidden>
     <div class="capture-stage">
       <video id="camera-video" autoplay playsinline muted></video>
       <div class="face-guide-oval"></div>
+      <div class="capture-overlay-top">
+        <div id="step-dots" class="step-dots"></div>
+      </div>
       <div id="hold-ring" class="hold-ring" style="--progress:0"></div>
+      <div class="capture-overlay-bottom">
+        <p id="step-instruction" class="step-instruction">카메라를 준비하는 중...</p>
+        <p id="step-sub" class="step-sub"></p>
+        <p id="no-face-hint" class="no-face-hint" hidden>얼굴이 잘 보이지 않아요. 밝은 곳에서 카메라 정면을 바라봐 주세요.</p>
+        <p id="close-up-hint" class="close-up-hint" hidden>더 정확한 분석을 위해 얼굴을 화면에 조금 더 크게 채워주세요.</p>
+      </div>
     </div>
-    <div id="step-dots" class="step-dots"></div>
-    <p id="step-instruction" class="step-instruction">카메라를 준비하는 중...</p>
-    <p id="step-sub" class="step-sub"></p>
-    <p id="no-face-hint" class="no-face-hint" hidden>얼굴이 잘 보이지 않아요. 밝은 곳에서 카메라 정면을 바라봐 주세요.</p>
-    <p id="close-up-hint" class="close-up-hint" hidden>더 정확한 분석을 위해 얼굴을 화면에 조금 더 크게 채워주세요.</p>
     <button id="btn-abort-capture" class="btn-secondary">그만하고 처음으로</button>
   </section>
 
@@ -94,6 +98,11 @@
       <div id="infographic-preview-wrap" class="infographic-preview-wrap"></div>
       <button id="btn-download-infographic" class="btn-primary">이미지로 다운로드</button>
     </div>
+    <div id="metrics-dashboard" class="card metrics-dashboard-card" hidden>
+      <h3 class="metrics-dashboard-title">핵심 지표 한눈에 보기</h3>
+      <div id="metrics-grid" class="metrics-grid"></div>
+    </div>
+    <nav id="report-nav" class="report-nav" aria-label="리포트 섹션 바로가기"></nav>
     <div id="report-sections" class="report-sections"></div>
     <div class="card disclaimer-card">
       <h3>안내</h3>

@@ -263,6 +263,53 @@ document.getElementById('btn-download-infographic').addEventListener('click', ()
 });
 
 // --- report rendering ---
+function renderKeyMetrics(keyMetrics) {
+  const dashboard = document.getElementById('metrics-dashboard');
+  const grid = document.getElementById('metrics-grid');
+  if (!keyMetrics || !keyMetrics.length) {
+    dashboard.hidden = true;
+    return;
+  }
+  grid.innerHTML = '';
+  for (const metric of keyMetrics) {
+    const tile = document.createElement('div');
+    tile.className = 'metric-gauge';
+
+    const label = document.createElement('p');
+    label.className = 'metric-gauge-label';
+    label.textContent = metric.label;
+    tile.appendChild(label);
+
+    const bar = document.createElement('div');
+    bar.className = 'metric-gauge-bar';
+    for (let i = 0; i < 5; i++) {
+      const seg = document.createElement('span');
+      seg.className = 'metric-gauge-seg' + (i === metric.tierIndex ? ' on' : '');
+      bar.appendChild(seg);
+    }
+    tile.appendChild(bar);
+
+    const caption = document.createElement('p');
+    caption.className = 'metric-gauge-caption';
+    caption.textContent = metric.caption;
+    tile.appendChild(caption);
+
+    grid.appendChild(tile);
+  }
+  dashboard.hidden = false;
+}
+
+function renderReportNav(sections) {
+  const nav = document.getElementById('report-nav');
+  nav.innerHTML = '';
+  for (const section of sections) {
+    const a = document.createElement('a');
+    a.href = `#section-${section.id}`;
+    a.textContent = section.title;
+    nav.appendChild(a);
+  }
+}
+
 function renderReport(report, earPhotos = []) {
   const container = document.getElementById('report-sections');
   container.innerHTML = '';
@@ -270,8 +317,12 @@ function renderReport(report, earPhotos = []) {
   const coverageEl = document.getElementById('report-coverage');
   coverageEl.textContent = `${report.coverage.samples} / ${report.coverage.totalRequested}단계 촬영 반영 · 여러 각도 데이터를 교차 평균하여 오차를 줄였습니다.`;
 
+  renderKeyMetrics(report.keyMetrics);
+  renderReportNav(report.sections);
+
   for (const section of report.sections) {
     const card = document.createElement('article');
+    card.id = `section-${section.id}`;
     card.className = 'report-card' + (section.qualitative ? ' qualitative' : '');
 
     const header = document.createElement('div');

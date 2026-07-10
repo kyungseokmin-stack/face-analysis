@@ -41,7 +41,7 @@ export const LITERATURE_SOURCES = {
  * [lowMax, midLowMax, midHighMax, highMax] 형태로 받는다 — 중간 구간이 항상 존재해
  * "평균적인 사람은 아무 설명도 못 받는" 공백이 생기지 않도록 한다.
  */
-function tier5(value, [lowMax, midLowMax, midHighMax, highMax]) {
+export function tier5(value, [lowMax, midLowMax, midHighMax, highMax]) {
   if (value == null || !Number.isFinite(value)) return 'mid';
   if (value < lowMax) return 'veryLow';
   if (value < midLowMax) return 'low';
@@ -141,9 +141,9 @@ export const OAK_INFO = {
   },
 };
 
-const NOSE_PROMINENCE_BOUNDS = [0.42, 0.47, 0.53, 0.58];
-const FOREHEAD_WIDTH_BOUNDS = [0.75, 0.83, 0.92, 1.00];
-const CHIN_WIDTH_BOUNDS = [0.72, 0.80, 0.88, 0.94];
+export const NOSE_PROMINENCE_BOUNDS = [0.42, 0.47, 0.53, 0.58];
+export const FOREHEAD_WIDTH_BOUNDS = [0.75, 0.83, 0.92, 1.00];
+export const CHIN_WIDTH_BOUNDS = [0.72, 0.80, 0.88, 0.94];
 
 // 오관/심변관(審辨官) 프레이밍 — 자아·재물·의지력 중심의 해석.
 const NOSE_PROMINENCE_TEXT = {
@@ -221,15 +221,15 @@ export const OGWAN_INFO = {
   },
 };
 
-const BROW_LENGTH_BOUNDS = [0.90, 1.00, 1.15, 1.30];
+export const BROW_LENGTH_BOUNDS = [0.90, 1.00, 1.15, 1.30];
 const BROW_THICKNESS_BOUNDS = [0.16, 0.21, 0.27, 0.32];
 // 실사용자 캡처 2건에서 눈 가로세로 비율이 0.24 미만, 미간 비율이 1.45~1.55로 관측되어,
 // 기존 가정치(각각 중심 0.31, 1.0)보다 실제 중심값이 낮고/높다는 것을 확인하고 재조정했다.
-const EYE_APERTURE_BOUNDS = [0.16, 0.20, 0.26, 0.32];
-const EYE_SPACING_BOUNDS = [1.15, 1.35, 1.60, 1.85];
-const NOSE_WIDTH_BOUNDS = [0.17, 0.19, 0.23, 0.26];
+export const EYE_APERTURE_BOUNDS = [0.16, 0.20, 0.26, 0.32];
+export const EYE_SPACING_BOUNDS = [1.15, 1.35, 1.60, 1.85];
+export const NOSE_WIDTH_BOUNDS = [0.17, 0.19, 0.23, 0.26];
 const NOSE_LENGTH_BOUNDS = [0.29, 0.32, 0.36, 0.39];
-const MOUTH_RATIO_BOUNDS = [1.35, 1.45, 1.60, 1.75];
+export const MOUTH_RATIO_BOUNDS = [1.35, 1.45, 1.60, 1.75];
 
 const BROW_LENGTH_TEXT = {
   veryLow: '눈썹의 길이가 눈보다 뚜렷하게 짧습니다. 전통적으로 독립적이고 스스로 결정하는 성향으로 보는 한편, 형제·친구 등 인복이 부족해 어려울 때 주위의 도움을 받기 어렵고 고독한 상으로 풀이하기도 합니다. 성격이 날카롭고 직선적이어서 감정 기복이 클 수 있는 상으로도 봅니다.',
@@ -558,6 +558,36 @@ export function summarizeSynthesis(
     `${shapeLabel} 바탕에 ${samjeongPart} 삼정, ${oakPart} 오악이 어우러진 인상입니다.`,
     `오관 중에서는 ${eyebrowPart}과 ${eyePart}, ${mouthPart}가 함께 나타나 이 사람만의 개성으로 도드라지는 조합으로 풀이합니다.`,
   ];
+}
+
+// ---------------------------------------------------------------------------
+// 핵심 지표 대시보드 — 리포트 맨 위에서 8개 핵심 비율을 5단계 게이지로 한눈에 보여준다.
+// 텍스트 해석과 별개로, 실제 계산된 tier를 그대로 시각화하므로 장식이 아니라 실측 기반이다.
+// ---------------------------------------------------------------------------
+const TIER_INDEX = { veryLow: 0, low: 1, mid: 2, high: 3, veryHigh: 4 };
+
+const KEY_METRIC_DEFS = [
+  { id: 'forehead', label: '이마 너비', key: 'foreheadWidthRatio', bounds: FOREHEAD_WIDTH_BOUNDS, captions: ['매우 좁음', '좁음', '보통', '넓음', '매우 넓음'] },
+  { id: 'browLength', label: '눈썹 길이', key: 'eyebrowLengthToEyeRatio', bounds: BROW_LENGTH_BOUNDS, captions: ['매우 짧음', '짧음', '보통', '긺', '매우 긺'] },
+  { id: 'eyeSpacing', label: '미간 간격', key: 'eyeSpacingRatio', bounds: EYE_SPACING_BOUNDS, captions: ['매우 좁음', '좁음', '보통', '넓음', '매우 넓음'] },
+  { id: 'eyeAperture', label: '눈 크기', key: 'eyeApertureRatio', bounds: EYE_APERTURE_BOUNDS, captions: ['매우 작음', '작음', '보통', '큼', '매우 큼'] },
+  { id: 'noseWidth', label: '코 너비', key: 'noseWidthToFaceRatio', bounds: NOSE_WIDTH_BOUNDS, captions: ['매우 갸름', '갸름', '보통', '넓음', '매우 넓음'] },
+  { id: 'noseProminence', label: '코 높이', key: 'noseProminence', bounds: NOSE_PROMINENCE_BOUNDS, captions: ['매우 낮음', '낮음', '보통', '높음', '매우 높음'] },
+  { id: 'mouth', label: '입 너비', key: 'mouthWidthToNoseRatio', bounds: MOUTH_RATIO_BOUNDS, captions: ['매우 아담', '아담', '보통', '넉넉', '매우 넉넉'] },
+  { id: 'chin', label: '턱 너비', key: 'chinWidthRatio', bounds: CHIN_WIDTH_BOUNDS, captions: ['매우 갸름', '갸름', '보통', '넓음', '매우 넓음'] },
+];
+
+export function buildKeyMetrics(measurements) {
+  return KEY_METRIC_DEFS.map((def) => {
+    const value = measurements[def.key];
+    const tier = tier5(value, def.bounds);
+    return {
+      id: def.id,
+      label: def.label,
+      tierIndex: TIER_INDEX[tier],
+      caption: def.captions[TIER_INDEX[tier]],
+    };
+  });
 }
 
 export const DISCLAIMER_TEXT = [

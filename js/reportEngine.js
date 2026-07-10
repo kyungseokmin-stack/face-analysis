@@ -19,6 +19,7 @@ import {
   interpretSibigung,
   classifyFaceShape,
   summarizeSynthesis,
+  buildKeyMetrics,
   EAR_NOTE,
   EAR_CHECKLIST,
   DISCLAIMER_TEXT,
@@ -172,6 +173,7 @@ export function buildReport(measurements) {
   return {
     generatedAt: new Date().toISOString(),
     coverage: measurements.coverage,
+    keyMetrics: buildKeyMetrics(measurements),
     sections,
     disclaimer: DISCLAIMER_TEXT,
   };
