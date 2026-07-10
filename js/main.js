@@ -83,6 +83,7 @@ const closeUpHintEl = document.getElementById('close-up-hint');
 const stepDotsEl = document.getElementById('step-dots');
 const btnAbortCapture = document.getElementById('btn-abort-capture');
 const captureStageEl = document.querySelector('.capture-stage');
+const filmstripEl = document.getElementById('capture-filmstrip');
 
 btnAbortCapture.addEventListener('click', () => {
   stopCamera();
@@ -102,6 +103,54 @@ function renderStepDots(activeIndex, total) {
     dot.className = 'step-dot' + (i < activeIndex ? ' done' : i === activeIndex ? ' active' : '');
     stepDotsEl.appendChild(dot);
   }
+}
+
+// 촬영 화면 아래 필름스트립 — "이 단계를 실제로 찍었는지" 헷갈린다는 피드백을 받아, 추상적인
+// 점 대신 각 단계에서 실제로 캡처된 프레임 썸네일과 방향 라벨(왼쪽/오른쪽/위/아래)을 그대로
+// 보여준다. 방향은 캡처 전에는 알 수 없으므로(사람마다 처음 도는 방향이 다름) 기본 아이콘/라벨로
+// 시작했다가, captureFlow가 실제 방향을 감지한 시점(onStepCaptured)에 갱신한다.
+const STEP_ICON = { front: '🙂', turnA: '↔️', turnB: '↔️', tiltA: '↕️', tiltB: '↕️' };
+const STEP_DEFAULT_LABEL = { front: '정면', turnA: '좌우 회전', turnB: '좌우 회전', tiltA: '상하 기울임', tiltB: '상하 기울임' };
+
+function renderFilmstripPlaceholders(steps) {
+  filmstripEl.innerHTML = '';
+  steps.forEach((step, i) => {
+    const slot = document.createElement('div');
+    slot.className = 'filmstrip-slot' + (i === 0 ? ' active' : '');
+    slot.id = `filmstrip-slot-${step.key}`;
+    slot.innerHTML = `
+      <div class="filmstrip-media"><span class="filmstrip-icon">${STEP_ICON[step.key] ?? '•'}</span></div>
+      <span class="filmstrip-label">${STEP_DEFAULT_LABEL[step.key] ?? step.key}</span>
+    `;
+    filmstripEl.appendChild(slot);
+  });
+}
+
+function setFilmstripActive(activeIndex, steps) {
+  steps.forEach((step, i) => {
+    const slot = document.getElementById(`filmstrip-slot-${step.key}`);
+    if (!slot) return;
+    slot.classList.toggle('active', i === activeIndex);
+  });
+}
+
+function updateFilmstripSlot(stepKey, { photoDataUrl, screenSide, screenDir }) {
+  const slot = document.getElementById(`filmstrip-slot-${stepKey}`);
+  if (!slot) return;
+  slot.classList.add('done');
+  slot.classList.remove('active');
+
+  let label = STEP_DEFAULT_LABEL[stepKey] ?? stepKey;
+  if (screenSide) label = screenSide === 'left' ? '왼쪽 회전' : '오른쪽 회전';
+  if (screenDir) label = screenDir === 'up' ? '위 기울임' : '아래 기울임';
+
+  slot.innerHTML = `
+    <div class="filmstrip-media">
+      <img src="${photoDataUrl}" alt="${label} 촬영 사진" class="filmstrip-thumb" />
+      <span class="filmstrip-check" aria-hidden="true">✓</span>
+    </div>
+    <span class="filmstrip-label">${label}</span>
+  `;
 }
 
 let noFaceTimer = null;
@@ -144,6 +193,7 @@ async function beginCaptureSession() {
         stepInstructionEl.textContent = step.instruction;
         stepSubEl.textContent = step.sub;
         renderStepDots(stepIndex, captureFlow.steps.length);
+        setFilmstripActive(stepIndex, captureFlow.steps);
         holdRingEl.style.setProperty('--progress', String(holdRatio));
 
         if (!faceDetected) {
@@ -167,8 +217,9 @@ async function beginCaptureSession() {
           closeUpHintEl.hidden = step.key !== 'front' || faceSizeRatio == null || faceSizeRatio >= 0.32;
         }
       },
-      onStepCaptured: (stepKey, stepIndex) => {
+      onStepCaptured: (stepKey, stepIndex, info) => {
         holdRingEl.style.setProperty('--progress', '0');
+        updateFilmstripSlot(stepKey, info);
         const isLastStep = stepIndex >= captureFlow.steps.length - 1;
         if (isLastStep) playAllDone();
         else playStepDing();
@@ -179,6 +230,7 @@ async function beginCaptureSession() {
         await runAnalysis(capturedPoses);
       },
     });
+    renderFilmstripPlaceholders(captureFlow.steps);
     captureFlow.start();
   } catch (err) {
     console.error(err);

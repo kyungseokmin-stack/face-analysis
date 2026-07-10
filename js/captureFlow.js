@@ -59,7 +59,7 @@ export class CaptureFlow {
    * @param {HTMLVideoElement} videoEl
    * @param {{
    *   onFrame?: (info: {stepIndex:number, step:object, pose:object|null, holdRatio:number, faceDetected:boolean}) => void,
-   *   onStepCaptured?: (stepKey:string, stepIndex:number) => void,
+   *   onStepCaptured?: (stepKey:string, stepIndex:number, info:{photoDataUrl:string, screenSide:('left'|'right'|null), screenDir:('up'|'down'|null)}) => void,
    *   onComplete?: (capturedPoses: Record<string, {landmarks:any[], blendshapes:any[]|null, pose:object}>) => void,
    * }} callbacks
    */
@@ -141,16 +141,47 @@ export class CaptureFlow {
       blendshapes: result.blendshapes,
       pose: result.pose,
     };
-    if (step.key === 'front' || step.key === 'turnA' || step.key === 'turnB') {
-      // 인포그래픽(정면)과 귀 참고 사진(좌우 회전) 생성을 위해 이 시점의 프레임만 캡처한다.
-      // 서버로 전송되지 않고, 화면에서 사용자가 직접 다운로드/저장하지 않는 한 브라우저
-      // 메모리에만 존재한다.
-      this.captured[step.key].photoDataUrl = capturePhoto(this.videoEl);
-    }
-    if (step.key === 'turnA') this.ctx.turnASign = Math.sign(result.pose.yaw) || 1;
-    if (step.key === 'tiltA') this.ctx.tiltASign = Math.sign(result.pose.pitch) || 1;
+    // 5단계 모두 이 순간의 프레임을 캡처해둔다 — 촬영 화면의 필름스트립(단계별 캡처 미리보기)에
+    // 그대로 보여줘서 "이 단계가 실제로 찍혔는지" 사용자가 눈으로 확인할 수 있게 하기 위함이다.
+    // 서버로 전송되지 않고, 화면에서 사용자가 직접 다운로드하지 않는 한 브라우저 메모리에만 존재한다.
+    // 이 중 정면·좌우 회전 사진만 인포그래픽·귀 참고 사진에 실제로 쓰인다.
+    this.captured[step.key].photoDataUrl = capturePhoto(this.videoEl);
 
-    this.callbacks.onStepCaptured?.(step.key, this.stepIndex);
+    let screenSide = null;
+    let screenDir = null;
+    if (step.key === 'turnA' || step.key === 'turnB') {
+      screenSide = estimateScreenSide(this.captured.front?.landmarks, result.landmarks);
+      this.captured[step.key].screenSide = screenSide;
+    }
+    if (step.key === 'tiltA' || step.key === 'tiltB') {
+      screenDir = estimateScreenTiltDir(this.captured.front?.landmarks, result.landmarks);
+      this.captured[step.key].screenDir = screenDir;
+    }
+
+    if (step.key === 'turnA') {
+      this.ctx.turnASign = Math.sign(result.pose.yaw) || 1;
+      // 실제로 감지된 방향을 알게 됐으니, 다음 단계(반대 방향) 안내 문구를 "반대 방향" 같은
+      // 추상적 표현 대신 구체적으로 왼쪽/오른쪽으로 명시해 업데이트한다.
+      if (screenSide) {
+        const other = screenSide === 'left' ? '오른쪽' : '왼쪽';
+        STEP_DEFS[2].instruction = `이번에도 카메라와 거리를 유지한 채, ${other} 귀를 가리는 머리카락을 젖히고 ${other}으로 고개를 많이 돌려주세요`;
+        STEP_DEFS[2].sub = `3 / 5 · 좌우 회전 (${other})`;
+      }
+    }
+    if (step.key === 'tiltA') {
+      this.ctx.tiltASign = Math.sign(result.pose.pitch) || 1;
+      if (screenDir) {
+        const other = screenDir === 'up' ? '아래' : '위';
+        STEP_DEFS[4].instruction = `이번엔 ${other} 방향으로 천천히 기울여주세요`;
+        STEP_DEFS[4].sub = `5 / 5 · 상하 기울임 (${other})`;
+      }
+    }
+
+    this.callbacks.onStepCaptured?.(step.key, this.stepIndex, {
+      photoDataUrl: this.captured[step.key].photoDataUrl,
+      screenSide,
+      screenDir,
+    });
     this.holdStart = null;
     this.stepIndex += 1;
 
@@ -177,6 +208,35 @@ function estimateFaceSizeRatio(landmarks) {
     if (p.x > maxX) maxX = p.x;
   }
   return Number.isFinite(minX) ? maxX - minX : null;
+}
+
+// MediaPipe FaceLandmarker의 478점 토폴로지에서 인덱스 1은 코끝(nose tip)으로 고정돼 있다 —
+// 별도 "코" 랜드마크 그룹은 없지만(faceEngine.js 주석 참고) 개별 인덱스 접근은 항상 가능하다.
+const NOSE_TIP_INDEX = 1;
+
+/**
+ * 정면(front) 캡처 시점의 코끝 x좌표를 기준으로, 좌우 회전 캡처 시점에 코끝이 원본(비반전)
+ * 프레임에서 어느 쪽으로 이동했는지를 보고 "미리보기 화면에서" 어느 방향으로 보이는지를
+ * 판정한다. 미리보기는 좌우반전(scaleX(-1))되어 있으므로, 원본 프레임에서 코끝 x가 작아지는
+ * 방향(왼쪽 이동)은 반전된 미리보기에서는 오른쪽으로 보인다 — 즉 사용자가 실제로 자신의
+ * 오른쪽으로 고개를 돌렸을 때의 결과와 일치한다.
+ */
+function estimateScreenSide(frontLandmarks, currentLandmarks) {
+  const a = frontLandmarks?.[NOSE_TIP_INDEX];
+  const b = currentLandmarks?.[NOSE_TIP_INDEX];
+  if (!a || !b) return null;
+  return b.x < a.x ? 'right' : 'left';
+}
+
+/**
+ * 상하 기울임은 미리보기에서 세로 방향을 반전하지 않으므로(scaleX만 적용), 이미지 좌표계
+ * 그대로 비교한다 — y가 작아지면(위로 이동) 화면에서도 위로 기운 것으로 보인다.
+ */
+function estimateScreenTiltDir(frontLandmarks, currentLandmarks) {
+  const a = frontLandmarks?.[NOSE_TIP_INDEX];
+  const b = currentLandmarks?.[NOSE_TIP_INDEX];
+  if (!a || !b) return null;
+  return b.y < a.y ? 'up' : 'down';
 }
 
 function capturePhoto(videoEl) {
