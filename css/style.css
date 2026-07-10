@@ -518,6 +518,27 @@ h3 { font-size: var(--text-md); margin: 0 0 var(--space-2); }
   text-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
 }
 
+/* 목표 각도까지 얼마나 왔는지 보여주는 진행 막대 — 목표에 도달하기 전까지는 아무 피드백이
+   없어 "얼마나 더 돌려야 하는지" 알 수 없었던 문제(특히 두 번째, 더 크게 돌아야 하는 회전
+   단계에서 두드러짐)를 보완한다. */
+.angle-progress {
+  width: 100%;
+  max-width: 220px;
+  height: 6px;
+  margin: 0 auto var(--space-3);
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.25);
+  overflow: hidden;
+}
+.angle-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: rgba(255, 255, 255, 0.75);
+  border-radius: var(--radius-full);
+  transition: width 0.1s linear, background-color var(--dur-base) var(--ease-standard);
+}
+.angle-progress-fill.reached { background: var(--accent); }
+
 .no-face-hint,
 .close-up-hint {
   text-align: center;

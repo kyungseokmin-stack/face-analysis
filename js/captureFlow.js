@@ -10,6 +10,14 @@
 // 위험이 있다. 대신 사용자가 실제로 움직인 방향을 기준으로 삼아 방향 표기 오류 없이 두 각도를 모두
 // 확보한다.
 
+// axis/threshold: isTarget과 별개로, 촬영 화면에서 "목표 각도까지 얼마나 왔는지"를 실시간
+// 막대로 보여주기 위한 값이다(main.js). 실사용자 피드백("왼쪽은 바로 소리가 나는데 오른쪽은
+// 소리가 안 나서 고개를 여러 번 흔들게 된다")을 받아 원인을 찾아보니, turnB는 turnA가 끝난
+// 시점의 각도(예: +50°)에서 반대 부호로 45°를 넘겨야 하므로 총 회전 폭이 90도 이상으로
+// turnA(0→45°)보다 훨씬 크다 — 그런데 화면에는 목표에 도달하기 전까지 진행 상황을 보여주는
+// 표시가 전혀 없어서(hold-ring은 "목표에 도달한 뒤 유지한 시간"만 보여줌), 사용자가 얼마나 더
+// 돌려야 하는지 알 수 없어 감으로 여러 번 시도하게 되는 것이 실제 원인으로 보인다. 이를
+// 고치기 위해 목표각 대비 현재각 비율을 별도로 노출한다.
 const STEP_DEFS = [
   {
     key: 'front',
@@ -17,6 +25,8 @@ const STEP_DEFS = [
     sub: '1 / 5 · 정면',
     isTarget: (pose) => Math.abs(pose.yaw) < 8 && Math.abs(pose.pitch) < 8,
     holdMs: 500,
+    axis: null,
+    threshold: null,
   },
   {
     // 30도 기준으로도 머리카락에 가려 귀가 안 보인다는 실사용자 피드백을 받아 45도로 상향했으나,
@@ -29,6 +39,8 @@ const STEP_DEFS = [
     sub: '2 / 5 · 좌우 회전',
     isTarget: (pose) => Math.abs(pose.yaw) > 45,
     holdMs: 350,
+    axis: 'yaw',
+    threshold: 45,
   },
   {
     key: 'turnB',
@@ -36,6 +48,8 @@ const STEP_DEFS = [
     sub: '3 / 5 · 좌우 회전 (반대)',
     isTarget: (pose, ctx) => Math.abs(pose.yaw) > 45 && Math.sign(pose.yaw) !== Math.sign(ctx.turnASign || 1),
     holdMs: 350,
+    axis: 'yaw',
+    threshold: 45,
   },
   {
     key: 'tiltA',
@@ -43,6 +57,8 @@ const STEP_DEFS = [
     sub: '4 / 5 · 상하 기울임',
     isTarget: (pose) => Math.abs(pose.pitch) > 12,
     holdMs: 350,
+    axis: 'pitch',
+    threshold: 12,
   },
   {
     key: 'tiltB',
@@ -50,6 +66,8 @@ const STEP_DEFS = [
     sub: '5 / 5 · 상하 기울임 (반대)',
     isTarget: (pose, ctx) => Math.abs(pose.pitch) > 12 && Math.sign(pose.pitch) !== Math.sign(ctx.tiltASign || 1),
     holdMs: 350,
+    axis: 'pitch',
+    threshold: 12,
   },
 ];
 
@@ -121,7 +139,7 @@ export class CaptureFlow {
       if (this.holdStart == null) this.holdStart = now;
       const held = now - this.holdStart;
       const holdRatio = Math.min(1, held / step.holdMs);
-      this.callbacks.onFrame?.({ stepIndex: this.stepIndex, step, pose: result.pose, holdRatio, faceDetected: true, faceSizeRatio });
+      this.callbacks.onFrame?.({ stepIndex: this.stepIndex, step, pose: result.pose, holdRatio, faceDetected: true, faceSizeRatio, ctx: this.ctx });
 
       if (held >= step.holdMs) {
         this._captureStep(step, result);
@@ -130,7 +148,7 @@ export class CaptureFlow {
       }
     } else {
       this.holdStart = null;
-      this.callbacks.onFrame?.({ stepIndex: this.stepIndex, step, pose: result.pose, holdRatio: 0, faceDetected: true, faceSizeRatio });
+      this.callbacks.onFrame?.({ stepIndex: this.stepIndex, step, pose: result.pose, holdRatio: 0, faceDetected: true, faceSizeRatio, ctx: this.ctx });
       this._loop();
     }
   }

@@ -84,6 +84,8 @@ const stepDotsEl = document.getElementById('step-dots');
 const btnAbortCapture = document.getElementById('btn-abort-capture');
 const captureStageEl = document.querySelector('.capture-stage');
 const filmstripEl = document.getElementById('capture-filmstrip');
+const angleProgressEl = document.getElementById('angle-progress');
+const angleProgressFillEl = document.getElementById('angle-progress-fill');
 
 btnAbortCapture.addEventListener('click', () => {
   stopCamera();
@@ -189,12 +191,29 @@ async function beginCaptureSession() {
     }
 
     captureFlow = new CaptureFlow(faceEngine, videoEl, {
-      onFrame: ({ stepIndex, step, pose, holdRatio, faceDetected, faceSizeRatio }) => {
+      onFrame: ({ stepIndex, step, pose, holdRatio, faceDetected, faceSizeRatio, ctx }) => {
         stepInstructionEl.textContent = step.instruction;
         stepSubEl.textContent = step.sub;
         renderStepDots(stepIndex, captureFlow.steps.length);
         setFilmstripActive(stepIndex, captureFlow.steps);
         holdRingEl.style.setProperty('--progress', String(holdRatio));
+
+        // 목표 각도(회전/기울임)까지 얼마나 왔는지 실시간으로 보여준다. front 단계는 "중앙에
+        // 머무르기"라 이 막대와 성격이 다르므로 숨긴다. turnB/tiltB는 반대 부호로 넘어가야
+        // 목표가 인정되므로, 아직 첫 단계와 같은 방향으로 돌고 있다면(부호가 안 바뀌었다면)
+        // 아무리 각도가 커도 진행률을 0으로 유지해 "그 방향이 아니라 반대로 더 돌아야 한다"는
+        // 사실을 잘못 전달하지 않도록 한다.
+        if (step.axis && pose) {
+          const value = step.axis === 'yaw' ? pose.yaw : pose.pitch;
+          const referenceSign = step.axis === 'yaw' ? ctx?.turnASign : ctx?.tiltASign;
+          const wrongDirection = referenceSign != null && Math.sign(value) === Math.sign(referenceSign);
+          const angleRatio = wrongDirection ? 0 : Math.min(1, Math.abs(value) / step.threshold);
+          angleProgressEl.hidden = false;
+          angleProgressFillEl.style.width = `${angleRatio * 100}%`;
+          angleProgressFillEl.classList.toggle('reached', angleRatio >= 1);
+        } else {
+          angleProgressEl.hidden = true;
+        }
 
         if (!faceDetected) {
           if (!noFaceTimer) {
