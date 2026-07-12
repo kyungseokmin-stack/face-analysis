@@ -34,9 +34,12 @@ const STEP_DEFS = [
     // 카메라에 너무 가까운 채로 고개를 돌리다 보니 웹캠의 좁은 화각 밖으로 귀가 밀려난 것이었다
     // (main.js에서 close-up 안내를 front 단계로 한정해 수정). 카메라와 어느 정도 거리를 두어야
     // 고개를 돌렸을 때 귀까지 화면 안에 들어오므로, 안내 문구에도 이를 명시한다.
+    // 예전에는 거리·거울보기·머리카락·회전까지 네 가지 지시를 한 문장에 욱여넣어 촬영 중
+    // 한눈에 읽기 어려웠다. 핵심 동작(고개를 옆으로 돌리기)만 instruction에 남기고, 거리·
+    // 머리카락 같은 보조 팁은 UI에서 별도 줄로 이미 노출되는 sub로 옮겼다.
     key: 'turnA',
-    instruction: '카메라와 한 걸음 거리를 두고, 거울 보듯 화면을 보면서 귀를 가리는 머리카락은 젖히고 귀가 뚜렷이 보일 때까지 고개를 옆으로 많이 돌려주세요',
-    sub: '2 / 5 · 좌우 회전',
+    instruction: '거울 보듯 화면을 보면서, 귀가 뚜렷이 보일 때까지 고개를 옆으로 많이 돌려주세요',
+    sub: '2 / 5 · 좌우 회전 · 카메라와 한 걸음 거리 유지, 귀 가리는 머리카락 젖히기',
     isTarget: (pose) => Math.abs(pose.yaw) > 45,
     holdMs: 350,
     axis: 'yaw',
@@ -44,8 +47,8 @@ const STEP_DEFS = [
   },
   {
     key: 'turnB',
-    instruction: '이번에도 카메라와 거리를 유지한 채, 반대쪽 귀를 가리는 머리카락을 젖히고 반대 방향으로 고개를 많이 돌려주세요',
-    sub: '3 / 5 · 좌우 회전 (반대)',
+    instruction: '이번엔 반대쪽으로 고개를 많이 돌려주세요',
+    sub: '3 / 5 · 좌우 회전 (반대) · 거리 유지, 반대쪽 귀 가리는 머리카락 젖히기',
     isTarget: (pose, ctx) => Math.abs(pose.yaw) > 45 && Math.sign(pose.yaw) !== Math.sign(ctx.turnASign || 1),
     holdMs: 350,
     axis: 'yaw',
@@ -91,6 +94,12 @@ export class CaptureFlow {
     this.captured = {};
     this.ctx = {};
     this._rafId = null;
+    // STEP_DEFS는 모듈 전역 상수라서 인스턴스끼리 공유된다. _captureStep이 실제 감지된
+    // 방향에 맞춰 instruction/sub 문구를 그 자리에서 고쳐 쓰기 때문에(turnA→turnB,
+    // tiltA→tiltB), 공유 배열을 그대로 두면 이전 세션에서 남은 문구가 다음 세션 시작
+    // 시점에 아직 남아있는 상태로 노출될 수 있다(예: 방향 판정에 실패해 재작성이 안 되는
+    // 경로가 생기는 경우). 인스턴스마다 얕은 복제본을 만들어 이 문제를 원천 차단한다.
+    this.stepDefs = STEP_DEFS.map((s) => ({ ...s }));
   }
 
   start() {
@@ -99,6 +108,9 @@ export class CaptureFlow {
     this.holdStart = null;
     this.captured = {};
     this.ctx = {};
+    // 매 세션 시작 시 원본(STEP_DEFS)에서 다시 복제해, 이전 세션이 덮어썼을 수 있는
+    // instruction/sub 문구를 초기 상태로 리셋한다.
+    this.stepDefs = STEP_DEFS.map((s) => ({ ...s }));
     this._loop();
   }
 
@@ -122,7 +134,7 @@ export class CaptureFlow {
 
     const now = performance.now();
     const result = this.faceEngine.detectForVideo(video, now);
-    const step = STEP_DEFS[this.stepIndex];
+    const step = this.stepDefs[this.stepIndex];
 
     if (!result || !result.pose) {
       this.holdStart = null;
@@ -182,16 +194,16 @@ export class CaptureFlow {
       // 추상적 표현 대신 구체적으로 왼쪽/오른쪽으로 명시해 업데이트한다.
       if (screenSide) {
         const other = screenSide === 'left' ? '오른쪽' : '왼쪽';
-        STEP_DEFS[2].instruction = `이번에도 카메라와 거리를 유지한 채, ${other} 귀를 가리는 머리카락을 젖히고 ${other}으로 고개를 많이 돌려주세요`;
-        STEP_DEFS[2].sub = `3 / 5 · 좌우 회전 (${other})`;
+        this.stepDefs[2].instruction = `${other}으로 고개를 많이 돌려주세요`;
+        this.stepDefs[2].sub = `3 / 5 · 좌우 회전 (${other}) · 거리 유지, 귀 가리는 머리카락 젖히기`;
       }
     }
     if (step.key === 'tiltA') {
       this.ctx.tiltASign = Math.sign(result.pose.pitch) || 1;
       if (screenDir) {
         const other = screenDir === 'up' ? '아래' : '위';
-        STEP_DEFS[4].instruction = `이번엔 ${other} 방향으로 천천히 기울여주세요`;
-        STEP_DEFS[4].sub = `5 / 5 · 상하 기울임 (${other})`;
+        this.stepDefs[4].instruction = `이번엔 ${other} 방향으로 천천히 기울여주세요`;
+        this.stepDefs[4].sub = `5 / 5 · 상하 기울임 (${other})`;
       }
     }
 
@@ -203,7 +215,7 @@ export class CaptureFlow {
     this.holdStart = null;
     this.stepIndex += 1;
 
-    if (this.stepIndex >= STEP_DEFS.length) {
+    if (this.stepIndex >= this.stepDefs.length) {
       this.running = false;
       this.callbacks.onComplete?.(this.captured);
       return;
@@ -212,7 +224,7 @@ export class CaptureFlow {
   }
 
   get steps() {
-    return STEP_DEFS;
+    return this.stepDefs;
   }
 }
 

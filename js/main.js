@@ -30,12 +30,39 @@ let mediaStream = null;
 let faceEngine = null;
 let captureFlow = null;
 
+// .app-header는 제목+부제목이 뷰포트 폭에 따라 줄바꿈 방식이 달라져 실제 렌더 높이가
+// ~93~110px 사이로 유동적이다. #report-nav가 스티키로 고정될 때 이 헤더 아래(그리고
+// 헤더보다 낮은 z-index) 정확히 붙어야 하므로, CSS에 고정값을 하드코딩하는 대신 여기서
+// 실측해 --header-h 커스텀 프로퍼티로 넘긴다. 초기 로드와 리사이즈(부제목 줄바꿈이
+// 바뀔 수 있으므로) 시점에 다시 측정한다.
+function syncHeaderHeightVar() {
+  const header = document.querySelector('.app-header');
+  if (!header) return;
+  document.documentElement.style.setProperty('--header-h', `${header.offsetHeight}px`);
+}
+
+let headerHeightResizeTimer = null;
+function scheduleHeaderHeightSync() {
+  if (headerHeightResizeTimer) clearTimeout(headerHeightResizeTimer);
+  headerHeightResizeTimer = setTimeout(syncHeaderHeightVar, 150);
+}
+
+syncHeaderHeightVar();
+window.addEventListener('resize', scheduleHeaderHeightSync);
+
 function stopCamera() {
   if (mediaStream) {
     for (const track of mediaStream.getTracks()) track.stop();
     mediaStream = null;
   }
   captureFlow?.stop();
+  // 보류 중인 "3초간 얼굴 미인식" 타이머를 정리하지 않으면, 사용자가 촬영을 중단한 뒤
+  // 곧바로 새 세션을 시작했을 때 이 타이머가 새 세션 도중 뒤늦게 발화해 얼굴이 정상
+  // 인식되고 있는데도 no-face-hint를 잘못 띄울 수 있다.
+  if (noFaceTimer) {
+    clearTimeout(noFaceTimer);
+    noFaceTimer = null;
+  }
 }
 
 function showError(message, detail) {
@@ -382,6 +409,9 @@ function renderReportNav(sections) {
 }
 
 function renderReport(report, earPhotos = []) {
+  // 리포트 화면으로 전환되는 시점에 헤더 높이를 다시 한번 확인한다 — 폰트 로딩 등으로
+  // 최초 측정 이후 헤더 높이가 미세하게 바뀌었을 수 있어, 스티키 nav가 가려지는 것을 막는다.
+  syncHeaderHeightVar();
   const container = document.getElementById('report-sections');
   container.innerHTML = '';
 

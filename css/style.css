@@ -700,9 +700,12 @@ h3 { font-size: var(--text-md); margin: 0 0 var(--space-2); }
 }
 
 /* 리포트 섹션 바로가기 — 긴 스크롤 대신 원하는 부위로 바로 이동할 수 있는 스티키 탭 바 */
+/* top은 --header-h(js/main.js가 .app-header의 실제 렌더 높이를 측정해 갱신하는 커스텀
+   프로퍼티)를 따른다. 헤더 높이는 부제목 줄바꿈 여부에 따라 뷰포트 폭마다 달라지므로,
+   여기 하드코딩된 값(폴백)만으로는 헤더가 이 nav를 덮어버리는 문제가 생길 수 있다. */
 .report-nav {
   position: sticky;
-  top: 52px; /* .app-header 높이 아래 */
+  top: var(--header-h, 100px); /* .app-header 실측 높이 아래 (js/main.js가 갱신) */
   z-index: 5;
   display: flex;
   gap: var(--space-2);
@@ -789,8 +792,14 @@ h3 { font-size: var(--text-md); margin: 0 0 var(--space-2); }
 }
 .ear-photo-fig {
   margin: 0;
-  flex: 1 0 auto;
-  min-width: 45%;
+  /* flex-basis 45%를 목표로 하되 실제로 줄어들 수 있어야 한다. 이전에는 flex-shrink:0 +
+     min-width:45%(암묵적 auto min-width도 동시에 작용) 조합 때문에, 캡처 해상도(최대
+     960px)로 설정된 <canvas> 자식의 intrinsic 픽셀 크기가 실질적인 하한이 되어 두 번째
+     사진이 행 밖으로 거의 밀려났다. min-width:0으로 intrinsic 크기 하한을 없애야
+     flex-basis(45%)가 실제로 적용된다. */
+  flex: 1 1 45%;
+  min-width: 0;
+  width: 45%;
   text-align: center;
 }
 .ear-photo-canvas {

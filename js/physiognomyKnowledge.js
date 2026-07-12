@@ -226,6 +226,12 @@ const BROW_THICKNESS_BOUNDS = [0.16, 0.21, 0.27, 0.32];
 // 실사용자 캡처 2건에서 눈 가로세로 비율이 0.24 미만, 미간 비율이 1.45~1.55로 관측되어,
 // 기존 가정치(각각 중심 0.31, 1.0)보다 실제 중심값이 낮고/높다는 것을 확인하고 재조정했다.
 export const EYE_APERTURE_BOUNDS = [0.16, 0.20, 0.26, 0.32];
+// 눈 "크기"(eyeWidthToFaceRatio = 눈 너비 / 얼굴 너비)의 잠정 경계값. 전통적인 오안(五眼)
+// 통설(얼굴 너비가 눈 너비 다섯 개와 같다 → 눈 하나 너비 ≈ 얼굴 너비의 1/5 = 0.20)을
+// 중심으로 잡고, 이 파일의 다른 비율들(NOSE_WIDTH_BOUNDS 등)과 비슷한 상대 스프레드로
+// 5단계 경계를 나눴다. 다른 항목들과 달리 아직 실사용자 캡처로 검증된 값이 아니므로,
+// EYE_APERTURE_BOUNDS처럼 실측 데이터가 쌓이면 재조정이 필요한 초기 추정치다.
+export const EYE_WIDTH_BOUNDS = [0.15, 0.17, 0.21, 0.23];
 export const EYE_SPACING_BOUNDS = [1.15, 1.35, 1.60, 1.85];
 export const NOSE_WIDTH_BOUNDS = [0.17, 0.19, 0.23, 0.26];
 const NOSE_LENGTH_BOUNDS = [0.29, 0.32, 0.36, 0.39];
@@ -264,12 +270,26 @@ export function interpretEyebrow({ lengthToEyeRatio, thicknessRatio, archHeight 
   return { text: parts };
 }
 
+// 주의: apertureRatio는 눈 세로/가로 비율 — 눈의 "크기"가 아니라 "모양(둥근 정도)"을
+// 재는 값이다(둥글고 또렷한 눈 = 봉안鳳眼 계열 vs 가늘고 길게 뻗은 눈). 눈이 객관적으로
+// 크더라도 가로로 길쭉한 모양이면 이 비율은 낮게 나올 수 있고 그 반대도 마찬가지이므로,
+// "크다/작다"로 서술하지 않는다 — 진짜 크기 서술은 EYE_WIDTH_TEXT(eyeWidthToFaceRatio) 몫이다.
 const EYE_APERTURE_TEXT = {
-  veryLow: '눈이 매우 작고 단단하게 자리 잡은 편입니다. 전통적으로 신중하고 속내를 잘 드러내지 않는 상으로 보는 한편, 지나치게 작으면 소심하고 마음이 좁아 큰 그림을 보지 못하는 상으로도 풀이합니다.',
-  low: '눈이 작은 편에 속합니다. 전통적으로 신중한 상으로 풀이합니다.',
-  mid: '눈의 크기가 무난한 편으로, 균형 잡힌 판단력을 보는 상입니다.',
-  high: '눈이 큰 편에 속합니다. 전통적으로 감수성이 풍부하고 표현력이 좋은 상으로 풀이합니다.',
-  veryHigh: '눈이 매우 큰 편에 속합니다. 전통적으로 감수성과 표현력이 매우 풍부한 상으로 보는 한편, 지나치게 크면 일을 성급하게 처리하고 감정 기복이 심할 수 있는 상으로도 봅니다.',
+  veryLow: '눈매가 가늘고 길게 뻗은 편입니다(세장한 눈 계열). 전통적으로 신중하고 속내를 잘 드러내지 않는 상으로 보는 한편, 지나치게 가늘면 경계심이 강해 마음을 잘 열지 않는 상으로도 풀이합니다.',
+  low: '눈매가 다소 가늘고 긴 편입니다. 전통적으로 침착하고 신중한 상으로 풀이합니다.',
+  mid: '눈매의 둥근 정도가 무난한 편으로, 균형 잡힌 인상을 주는 상입니다.',
+  high: '눈매가 둥근 편입니다(봉안鳳眼 계열). 전통적으로 감수성이 풍부하고 표현이 솔직한 상으로 풀이합니다.',
+  veryHigh: '눈매가 매우 둥근 편입니다. 전통적으로 감수성과 표현력이 매우 풍부한 상으로 보는 한편, 지나치게 둥글면 감정이 얼굴에 쉽게 드러나 침착함이 부족해 보일 수 있는 상으로도 봅니다.',
+};
+
+// eyeWidthToFaceRatio(눈 너비 / 얼굴 너비) — 눈의 실제 "크기"를 재는 지표. 값 자체는
+// measurements.js에서 이미 계산돼 있었으나 이전에는 어디에도 쓰이지 않고 버려지고 있었다.
+const EYE_WIDTH_TEXT = {
+  veryLow: '눈이 얼굴 너비에 비해 매우 작은 편입니다. 전통적으로 신중하고 매사에 조심스러운 상으로 보는 한편, 지나치게 작으면 소심하고 시야가 좁아지기 쉬운 상으로도 풀이합니다.',
+  low: '눈이 얼굴 너비에 비해 작은 편입니다. 전통적으로 꼼꼼하고 신중한 상으로 풀이합니다.',
+  mid: '눈의 크기가 얼굴 너비 대비 무난한 편으로(오안五眼 통설상의 표준에 가까운 크기), 균형 잡힌 인상입니다.',
+  high: '눈이 얼굴 너비에 비해 큰 편입니다. 전통적으로 표현력이 좋고 시원시원한 인상을 주는 상으로 풀이합니다.',
+  veryHigh: '눈이 얼굴 너비에 비해 매우 큰 편입니다. 전통적으로 감수성과 표현력이 매우 풍부한 상으로 보는 한편, 지나치게 크면 산만해지고 감정 기복이 두드러질 수 있는 상으로도 봅니다.',
 };
 
 const EYE_SPACING_TEXT = {
@@ -282,6 +302,7 @@ const EYE_SPACING_TEXT = {
 
 export function interpretEye({ widthToFaceRatio, apertureRatio, spacingRatio }) {
   const parts = [];
+  parts.push(EYE_WIDTH_TEXT[tier5(widthToFaceRatio, EYE_WIDTH_BOUNDS)]);
   parts.push(EYE_APERTURE_TEXT[tier5(apertureRatio, EYE_APERTURE_BOUNDS)]);
   parts.push(EYE_SPACING_TEXT[tier5(spacingRatio, EYE_SPACING_BOUNDS)]);
   return { text: parts };
@@ -292,7 +313,7 @@ const NOSE_WIDTH_TEXT = {
   low: '코가 갸름한 편입니다. 전통적으로 재물보다 명예나 성취를 중시하는 상으로 풀이합니다.',
   mid: '콧망울(코 너비)이 표준 범위에 들어, 재물운이 유난히 튀지 않는 편입니다.',
   high: '콧망울(코 너비)이 넓게 자리 잡은 편입니다. 전통적으로 재물을 모으고 지키는 힘이 좋은 상(재백궁財帛宮이 튼튼함)으로 풀이합니다.',
-  veryHigh: '콧망울(코 너비)이 매우 넓은 편입니다. 전통적으로 재물을 모으고 지키는 힘이 매우 좋은 상으로 풀이합니다.',
+  veryHigh: '콧망울(코 너비)이 매우 넓은 편입니다. 전통적으로 재물을 모으고 지키는 힘이 매우 좋은 상으로 보는 한편, "태과즉흉(太過則凶, 지나치면 흉이 된다)"이라 하여 콧망울이 지나치게 벌어지고 콧구멍이 드러나 보이면 오히려 재물이 새어나간다고 풀이하기도 하니, 씀씀이를 관리하는 습관이 도움이 되는 상으로 봅니다.',
 };
 
 const NOSE_LENGTH_TEXT = {
@@ -337,7 +358,7 @@ export const EAR_CHECKLIST = [
   { label: '귓불', desc: '두툼하고 늘어진 편이면 전통적으로 복(福)과 여유가 있는 상, 얇고 붙어 있으면 실속·현실감을 중시하는 상으로 봅니다.' },
   { label: '크기', desc: '얼굴에 비해 크면 전통적으로 담대하고 배포가 큰 상, 아담하면 섬세하고 신중한 상으로 풀이합니다.' },
   { label: '위치', desc: '눈썹보다 높이 붙어 있으면 전통적으로 총명하고 초년에 두각을 나타내는 상, 낮으면 대기만성형으로 봅니다.' },
-  { label: '각도', desc: '귀가 머리에 바짝 붙어 있으면 전통적으로 신중한 상, 살짝 벌어져 있으면 활동적이고 개방적인 상으로 풀이합니다.' },
+  { label: '각도', desc: '귀가 머리에 바짝 붙어 있으면 전통적으로 신중한 상, 살짝 벌어져 있으면 활동적이고 개방적인 상으로 풀이합니다. 다만 지나치게 벌어져 정면에서도 귀가 뚜렷이 드러나 보이면(초풍이招風耳) 전통적으로 재물이 새어나가거나 초년에 부모와 일찍 떨어져 고생하는 상으로 조심스럽게 풀이하기도 합니다.' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -473,15 +494,20 @@ export function interpretSibigung(measurements) {
     });
   }
 
+  // 턱은 오악(북악)과 십이궁(노복궁) 두 틀 모두에서 chinWidthRatio로 판정되어 문헌상으로도
+  // 정당하지만(각각 말년·의지력, 아랫사람 복이라는 별개 함의를 지님), 두 문구가 같은 "N악/궁이
+  // X한 편으로/하여, 전통적으로 Y" 어순으로 반복되면 읽을 때 겹쳐 보인다. 아랫사람 복이라는
+  // 결과를 먼저 말하고 근거(턱 모양)를 뒤에 붙이는 역순 구조로 바꿔, CHIN_WIDTH_TEXT(오악)의
+  // 어순과 겹치지 않게 했다.
   const chinTier = tier5(measurements.chinWidthRatio, CHIN_WIDTH_BOUNDS);
   notes.push({
     gung: 'nobok',
     text:
       chinTier === 'high' || chinTier === 'veryHigh'
-        ? '노복궁(턱 끝)이 넓고 두툼하여, 전통적으로 아랫사람·주변 사람의 도움을 잘 받는 상으로 풀이합니다.'
+        ? '아랫사람·주변 사람의 도움을 잘 받는 상으로 전통적으로 풀이하는데, 노복궁 자리인 턱 끝이 넓고 두툼하게 자리 잡은 것이 그 근거입니다.'
         : chinTier === 'low' || chinTier === 'veryLow'
-        ? '노복궁(턱 끝)이 갸름하여, 전통적으로 남에게 기대기보다 스스로 해결하는 상으로 풀이합니다.'
-        : '노복궁(턱 끝)이 무난한 범위에 있어, 아랫사람 복이 크게 넘치거나 모자라지 않는 상으로 풀이합니다.',
+        ? '남에게 기대기보다 스스로 해결해 나가는 상으로 전통적으로 풀이하는데, 노복궁 자리인 턱 끝이 갸름한 것이 그 근거입니다.'
+        : '아랫사람 복이 크게 넘치거나 모자라지 않는 상으로 풀이하는데, 노복궁 자리인 턱 끝의 너비가 무난한 범위에 있기 때문입니다.',
   });
 
   return notes;
@@ -570,7 +596,10 @@ const KEY_METRIC_DEFS = [
   { id: 'forehead', label: '이마 너비', key: 'foreheadWidthRatio', bounds: FOREHEAD_WIDTH_BOUNDS, captions: ['매우 좁음', '좁음', '보통', '넓음', '매우 넓음'] },
   { id: 'browLength', label: '눈썹 길이', key: 'eyebrowLengthToEyeRatio', bounds: BROW_LENGTH_BOUNDS, captions: ['매우 짧음', '짧음', '보통', '긺', '매우 긺'] },
   { id: 'eyeSpacing', label: '미간 간격', key: 'eyeSpacingRatio', bounds: EYE_SPACING_BOUNDS, captions: ['매우 좁음', '좁음', '보통', '넓음', '매우 넓음'] },
-  { id: 'eyeAperture', label: '눈 크기', key: 'eyeApertureRatio', bounds: EYE_APERTURE_BOUNDS, captions: ['매우 작음', '작음', '보통', '큼', '매우 큼'] },
+  // 이전에는 eyeApertureRatio(눈매의 가로세로 비율 = 모양)를 "눈 크기"로 표기해, 실제
+  // 크기(eyeWidthToFaceRatio)와 다른 값을 크기인 것처럼 보여주는 문제가 있었다. 이제
+  // 진짜 크기 지표로 바꿔, 라벨과 실제 계산되는 값이 일치하도록 했다.
+  { id: 'eyeSize', label: '눈 크기', key: 'eyeWidthToFaceRatio', bounds: EYE_WIDTH_BOUNDS, captions: ['매우 작음', '작음', '보통', '큼', '매우 큼'] },
   { id: 'noseWidth', label: '코 너비', key: 'noseWidthToFaceRatio', bounds: NOSE_WIDTH_BOUNDS, captions: ['매우 갸름', '갸름', '보통', '넓음', '매우 넓음'] },
   { id: 'noseProminence', label: '코 높이', key: 'noseProminence', bounds: NOSE_PROMINENCE_BOUNDS, captions: ['매우 낮음', '낮음', '보통', '높음', '매우 높음'] },
   { id: 'mouth', label: '입 너비', key: 'mouthWidthToNoseRatio', bounds: MOUTH_RATIO_BOUNDS, captions: ['매우 아담', '아담', '보통', '넉넉', '매우 넉넉'] },

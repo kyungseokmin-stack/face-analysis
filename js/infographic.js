@@ -36,8 +36,13 @@ function shortLabels(m) {
     eye:
       m.eyeSpacingRatio > 1.1 ? '미간 넓음 · 여유' :
       m.eyeSpacingRatio < 0.85 ? '미간 좁음 · 집중력' : '눈 · 감찰관',
+    // "재백궁(財帛宮)"은 십이궁 해석(physiognomyKnowledge.js의 interpretSibigung)에서
+    // noseWidthToFaceRatio(코 "너비")로 판정한다. 여기 라벨은 noseProminence(코 "높이/
+    // 돌출도")를 기준으로 하는 서로 다른 측정치이므로, 같은 궁 이름을 붙이면 리포트
+    // 본문의 재백궁 해석과 모순될 수 있다(예: 콧대는 높지만 폭은 좁은 코). 돌출도는
+    // 오악(五嶽)의 중악(中嶽) 프레임에 해당하므로 그쪽 이름으로 바꾼다.
     nose:
-      m.noseProminence > 0.55 ? '콧대 높음 · 재백궁' :
+      m.noseProminence > 0.55 ? '콧대 높음 · 중악 발달' :
       m.noseProminence < 0.35 ? '코 완만 · 온화' : '코 · 심변관',
     mouth: m.mouthWidthToNoseRatio > 1.6 ? '입 넉넉 · 출납관' : '입 · 출납관',
     chin:
