@@ -561,6 +561,34 @@ const EYE_SPACING_SUMMARY_KEYWORD = {
   veryHigh: '너그러운 눈매',
 };
 
+// 종합 총평의 마지막 문장 — 위 두 문장이 "어떤 특징이 있는지"만 말하는 데 그쳐,
+// 정작 "그래서 어떻다는 건지" 시사점이 없다는 피드백을 반영해 추가한 결론 문장용
+// 어구 사전. 삼정 발달 구간은 초년/중년/말년 중 어느 시기가 두드러지는 삶의 흐름으로,
+// 오악(중악) 정도는 성향·추진력으로 풀어 전통 관상의 "총평"다운 결론을 준다.
+const SAMJEONG_LIFE_KEYWORD = {
+  balanced: '어느 한 시기에 치우치지 않고 고르게 풀려나가는 삶의 흐름',
+  upper: {
+    developed: '초년부터 명예와 위치에서 두각을 나타내는 삶의 흐름',
+    compressed: '초년에는 애를 써야 하지만 점차 자리를 잡아가는 삶의 흐름',
+  },
+  middle: {
+    developed: '중년에 자기 힘으로 기반을 크게 일으키는 삶의 흐름',
+    compressed: '중년에는 굴곡을 겪지만 이를 발판 삼아 성장하는 삶의 흐름',
+  },
+  lower: {
+    developed: '말년으로 갈수록 안정과 결실을 누리는 삶의 흐름',
+    compressed: '말년을 편안히 보내려면 미리미리 대비가 필요한 삶의 흐름',
+  },
+};
+
+const OAK_LIFE_KEYWORD = {
+  veryLow: '무리하지 않고 온화하게 주변과 어울리는 성향',
+  low: '차분하게 실속을 챙기는 성향',
+  mid: '균형 잡힌 판단으로 무난하게 헤쳐 나가는 성향',
+  high: '강한 자존감과 추진력으로 스스로 길을 여는 성향',
+  veryHigh: '강하게 밀어붙이되 주변과의 조화에 마음을 써야 하는 성향',
+};
+
 /**
  * 종합 총평 문단을 구성한다. 각 section이 이미 문장으로 풀어낸 해석을 그대로 복사하지
  * 않고, 같은 측정치의 tier/분류 결과에서 뽑은 짧은 어구만으로 새 문장 2개를 만든다.
@@ -579,10 +607,16 @@ export function summarizeSynthesis(
   const eyebrowPart = EYEBROW_SUMMARY_KEYWORD[tier5(measurements.eyebrowLengthToEyeRatio, BROW_LENGTH_BOUNDS)];
   const mouthPart = MOUTH_SUMMARY_KEYWORD[tier5(measurements.mouthWidthToNoseRatio, MOUTH_RATIO_BOUNDS)];
   const eyePart = EYE_SPACING_SUMMARY_KEYWORD[tier5(measurements.eyeSpacingRatio, EYE_SPACING_BOUNDS)];
+  const samjeongLifePart =
+    samjeongSpread < SAMJEONG_BALANCE_THRESHOLD
+      ? SAMJEONG_LIFE_KEYWORD.balanced
+      : SAMJEONG_LIFE_KEYWORD[samjeongDominantKey][samjeongDominantDirection];
+  const oakLifePart = OAK_LIFE_KEYWORD[tier5(measurements.noseProminence, NOSE_PROMINENCE_BOUNDS)];
 
   return [
     `${shapeLabel} 바탕에 ${samjeongPart} 삼정(이마·코·턱의 비율)과 ${oakPart} 오악(콧대의 입체감)이 어우러진 인상입니다.`,
     `이목구비(오관) 중에서는 ${eyebrowPart}과 ${eyePart}, ${mouthPart}가 함께 나타나 이 사람만의 개성으로 도드라지는 조합으로 풀이합니다.`,
+    `전통 관상에서는 이런 조합을 ${samjeongLifePart}에 ${oakLifePart}이 더해진 인상으로 보는데, 이는 타고난 골격에 대한 전통적 해석일 뿐 실제 삶의 결과는 본인의 노력과 선택에 달려 있습니다.`,
   ];
 }
 
