@@ -33,9 +33,29 @@ function sourceTag(key) {
 export function buildReport(measurements) {
   const sections = [];
 
-  // 얼굴형
+  // 얼굴형/삼정은 종합 총평에서도 쓰이므로 먼저 계산해 둔다 (section push는 아래에서).
   const shapeKey = classifyFaceShape(measurements);
   const shapeData = FACE_SHAPE_INFO.shapes[shapeKey];
+  const samjeong = interpretSamjeong(measurements.samjeongRatios);
+
+  // 종합 총평 — 리포트 맨 위에 배치해 먼저 결론부터 보여준다. 아래 각 section이
+  // 이미 문장으로 풀어낸 해석을 그대로 복사하지 않고, 같은 측정치의 tier 정보에서
+  // 뽑은 짧은 어구만으로 새로 작성한 요약 문단이다 (physiognomyKnowledge.js의
+  // summarizeSynthesis 참고). source가 없는 편집상 요약이라는 점도 이와 맞닿아 있다.
+  sections.push({
+    id: 'synthesis',
+    title: '종합 총평',
+    source: null,
+    description: '아래 이마·코·턱 비율, 이목구비 등 세부 풀이를 한데 모아 쉬운 말로 먼저 정리한 요약입니다.',
+    text: summarizeSynthesis(measurements, {
+      shapeLabel: shapeData.label,
+      samjeongSpread: samjeong.spread,
+      samjeongDominantKey: samjeong.dominantKey,
+      samjeongDominantDirection: samjeong.dominantDirection,
+    }),
+  });
+
+  // 얼굴형
   sections.push({
     id: 'face-shape',
     title: FACE_SHAPE_INFO.title,
@@ -46,7 +66,6 @@ export function buildReport(measurements) {
   });
 
   // 삼정
-  const samjeong = interpretSamjeong(measurements.samjeongRatios);
   sections.push({
     id: 'samjeong',
     title: SAMJEONG_INFO.title,
@@ -153,22 +172,6 @@ export function buildReport(measurements) {
       text: sibigungNotes.map((n) => `${SIBIGUNG_INFO.gungs[n.gung].label} (${SIBIGUNG_INFO.gungs[n.gung].region}) — ${n.text}`),
     });
   }
-
-  // 종합 총평 — 위 각 section의 문장을 그대로 복사하지 않고, 같은 측정치의 tier
-  // 정보에서 뽑은 짧은 어구만으로 새로 작성한 요약 문단이다 (physiognomyKnowledge.js
-  // 의 summarizeSynthesis 참고). source가 없는 편집상 요약이라는 점도 이와 맞닿아 있다.
-  sections.push({
-    id: 'synthesis',
-    title: '종합 총평',
-    source: null,
-    description: '위에서 살펴본 이마·코·턱 비율, 이목구비 등을 한데 모아 쉬운 말로 다시 정리한 요약입니다.',
-    text: summarizeSynthesis(measurements, {
-      shapeLabel: shapeData.label,
-      samjeongSpread: samjeong.spread,
-      samjeongDominantKey: samjeong.dominantKey,
-      samjeongDominantDirection: samjeong.dominantDirection,
-    }),
-  });
 
   return {
     generatedAt: new Date().toISOString(),
