@@ -161,7 +161,7 @@ export function buildReport(measurements) {
     id: 'synthesis',
     title: '종합 총평',
     source: null,
-    description: '마의상법·유장상법·신상전편의 여러 틀(오행·삼정·오악·오관)을 종합해 새로 작성한 편집 요약입니다.',
+    description: '위에서 살펴본 이마·코·턱 비율, 이목구비 등을 한데 모아 쉬운 말로 다시 정리한 요약입니다.',
     text: summarizeSynthesis(measurements, {
       shapeLabel: shapeData.label,
       samjeongSpread: samjeong.spread,

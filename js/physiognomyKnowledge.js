@@ -581,8 +581,8 @@ export function summarizeSynthesis(
   const eyePart = EYE_SPACING_SUMMARY_KEYWORD[tier5(measurements.eyeSpacingRatio, EYE_SPACING_BOUNDS)];
 
   return [
-    `${shapeLabel} 바탕에 ${samjeongPart} 삼정, ${oakPart} 오악이 어우러진 인상입니다.`,
-    `오관 중에서는 ${eyebrowPart}과 ${eyePart}, ${mouthPart}가 함께 나타나 이 사람만의 개성으로 도드라지는 조합으로 풀이합니다.`,
+    `${shapeLabel} 바탕에 ${samjeongPart} 삼정(이마·코·턱의 비율)과 ${oakPart} 오악(콧대의 입체감)이 어우러진 인상입니다.`,
+    `이목구비(오관) 중에서는 ${eyebrowPart}과 ${eyePart}, ${mouthPart}가 함께 나타나 이 사람만의 개성으로 도드라지는 조합으로 풀이합니다.`,
   ];
 }
 
