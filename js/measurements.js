@@ -57,6 +57,21 @@ function stdevY(landmarks, indices) {
   return Math.sqrt(variance);
 }
 
+/** 점 p에서 직선 a-b까지의 2D(x,y) 수선의 발 거리. */
+function pointToLineDistance(p, a, b) {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const lineLenSq = dx * dx + dy * dy;
+  if (lineLenSq === 0) return Math.hypot(p.x - a.x, p.y - a.y);
+  const t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / lineLenSq;
+  const projX = a.x + t * dx, projY = a.y + t * dy;
+  return Math.hypot(p.x - projX, p.y - projY);
+}
+
+// 고개를 이 각도(도) 이상 돌린 프레임(turnA/turnB)에서만 옆모습 기반 코 돌출도를 계산한다.
+// captureFlow.js가 turnA/turnB를 |yaw|>=45도에서 캡처하므로 대부분 이 조건을 만족하지만,
+// 여유를 두어 30도로 잡았다.
+const PROFILE_YAW_MIN_DEGREES = 30;
+
 /** y값 범위 [yMin, yMax] (0=이마쪽, 1=턱쪽, 상대비율) 안에 있는 faceOval 점들의 x폭을 구한다. */
 function widthInYBand(landmarks, ovalIndices, ovalBox, yMinRatio, yMaxRatio) {
   const yMin = ovalBox.minY + ovalBox.height * yMinRatio;
@@ -99,7 +114,7 @@ function average(nums) {
  * 단일 포즈(랜드마크 1세트)로부터 1차 지표를 계산한다.
  * 실패 가능(랜드마크 누락)하므로 호출부에서 null 체크가 필요하다.
  */
-function computeSinglePoseMetrics(landmarks, groups) {
+function computeSinglePoseMetrics(landmarks, groups, pose) {
   if (!landmarks) return null;
 
   const ovalIdx = indicesFromConnections(groups.faceOval);
@@ -195,6 +210,37 @@ function computeSinglePoseMetrics(landmarks, groups) {
     noseProminence = clamp(0.5 + (raw / faceWidth) * 9, 0, 1);
   }
 
+  // --- 코 돌출도(옆모습 기반) ---
+  // 정면 사진만으로는 MediaPipe가 추정하는 z(깊이)값의 오차가 커서, 실제로는 코가 낮은
+  // 사람도 "매우 높음"으로 나오는 문제가 있었다. 고개를 45도 이상 돌린 옆모습에서는 코의
+  // 실제 돌출이 이미지의 x/y 평면 위로 충분히 드러나므로, 그 각도에서는 z 대신 순수 기하로
+  // 계산한다 — 이마 위쪽 끝과 턱 아래쪽 끝을 잇는 "얼굴 옆선"에서 코끝(랜드마크 1)이 얼마나
+  // 벗어나 있는지를 재는데, 이는 전통적으로 옆모습 사진에서 콧대 높이를 가늠하는 방식과 같다.
+  let noseProminenceProfile = null;
+  if (pose && Math.abs(pose.yaw) >= PROFILE_YAW_MIN_DEGREES) {
+    const noseTip = landmarks[1];
+    let topPt = null, bottomPt = null;
+    for (const i of ovalIdx) {
+      const p = landmarks[i];
+      if (!p) continue;
+      if (!topPt || p.y < topPt.y) topPt = p;
+      if (!bottomPt || p.y > bottomPt.y) bottomPt = p;
+    }
+    if (noseTip && topPt && bottomPt) {
+      const lineLen = Math.hypot(bottomPt.x - topPt.x, bottomPt.y - topPt.y);
+      if (lineLen > 0) {
+        const raw = pointToLineDistance(noseTip, topPt, bottomPt) / lineLen;
+        // 회전각이 클수록 실제 돌출이 화면에 더 많이 드러나므로(sin(각도)에 비례), 다시
+        // 나눠 "정면 기준 돌출 비율"과 같은 스케일로 되돌린다.
+        const depthEquivalent = raw / Math.sin((Math.abs(pose.yaw) * Math.PI) / 180);
+        // 성인 옆모습에서 코끝~이마-턱 선 사이 거리는 대략 얼굴 길이의 6~7% 정도가 "보통"
+        // 수준으로 알려져 있다(문헌·의료 실측 데이터는 아닌 일반적 안면 비례 근사치). 이를
+        // 중간값(0.5)에 맞추고 배율을 곱해 0~1 범위로 펼친다.
+        noseProminenceProfile = clamp(0.5 + (depthEquivalent - 0.065) * 6, 0, 1);
+      }
+    }
+  }
+
   // --- 입 ---
   const mouthWidth = lipsBox.width;
   const mouthWidthToNoseRatio = noseWidth ? mouthWidth / noseWidth : null;
@@ -274,6 +320,7 @@ function computeSinglePoseMetrics(landmarks, groups) {
     noseWidthToFaceRatio,
     noseLengthToFaceRatio,
     noseProminence,
+    noseProminenceProfile,
     mouthWidthToNoseRatio,
     mouthWidthToFaceRatio,
     widthToHeightRatio,
@@ -294,7 +341,7 @@ export function computeMeasurements(capturedPoses, groups) {
   const perPose = {};
   for (const [key, pose] of Object.entries(capturedPoses)) {
     if (pose?.landmarks) {
-      perPose[key] = computeSinglePoseMetrics(pose.landmarks, groups);
+      perPose[key] = computeSinglePoseMetrics(pose.landmarks, groups, pose.pose);
     }
   }
 
@@ -315,7 +362,16 @@ export function computeMeasurements(capturedPoses, groups) {
   samjeongRatios.middle /= sumRatio;
   samjeongRatios.lower /= sumRatio;
 
-  const noseProminence = average(succeeded.map(([, v]) => v.noseProminence));
+  // 코 돌출도: 좌우 회전(turnA/turnB) 옆모습에서 계산한 값이 있으면 그쪽을 우선 사용한다.
+  // 정면 사진의 z(깊이) 추정은 MediaPipe 특성상 오차가 커서, 실제로는 코가 낮아도 "매우
+  // 높음"으로 나오는 경우가 있었다 — 옆모습 기반 값은 순수 2D 기하로 계산해 이 문제가 없다.
+  // 옆모습이 없는 경우(촬영 실패 등)에는 기존처럼 정면 기준 값으로 대체한다.
+  const profileSamples = succeeded
+    .map(([, v]) => v.noseProminenceProfile)
+    .filter((v) => v != null);
+  const noseProminence = profileSamples.length
+    ? average(profileSamples)
+    : average(succeeded.map(([, v]) => v.noseProminence));
 
   // 나머지 지표는 정면(front)이 없으면 사용 가능한 첫 포즈를 사용
   const primary = perPose.front ?? succeeded[0][1];
