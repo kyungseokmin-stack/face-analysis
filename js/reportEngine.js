@@ -154,7 +154,7 @@ export function buildReport(measurements) {
     showEarPhotos: true,
   });
 
-  // 십이궁 주요 6궁
+  // 십이궁 주요 7궁
   const sibigungNotes = interpretSibigung({
     eyeSpacingRatio: measurements.eyeSpacingRatio ?? 1,
     foreheadWidthRatio: measurements.foreheadWidthRatio ?? 0.9,
@@ -162,6 +162,7 @@ export function buildReport(measurements) {
     eyebrowLengthToEyeRatio: measurements.eyebrowLengthToEyeRatio ?? 1,
     cheekBalance: measurements.cheekBalance,
     chinWidthRatio: measurements.chinWidthRatio ?? 0.8,
+    eyelidGapRatio: measurements.eyelidGapRatio ?? 0.4,
   });
   if (sibigungNotes.length) {
     sections.push({

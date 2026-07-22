@@ -180,6 +180,13 @@ function computeSinglePoseMetrics(landmarks, groups, pose) {
     leftBrowBox.width ? stdevY(landmarks, leftBrowIdx) / leftBrowBox.width : null,
     rightBrowBox.width ? stdevY(landmarks, rightBrowIdx) / rightBrowBox.width : null,
   ]);
+  // 전택궁(눈두덩이) — 눈썹 아래쪽 끝(눈에 가장 가까운 지점)과 눈 위쪽 끝 사이의 세로 간격을
+  // 눈 너비로 정규화한 값. 이 간격이 넓게 트여 있는지가 전통적으로 전택궁을 보는 기준이다.
+  const eyelidGap = average([
+    leftEyeBox.minY - leftBrowBox.maxY,
+    rightEyeBox.minY - rightBrowBox.maxY,
+  ]);
+  const eyelidGapRatio = eyeWidth && eyelidGap != null ? eyelidGap / eyeWidth : null;
 
   // --- 눈 ---
   const eyeApertureRatio = average([
@@ -313,6 +320,7 @@ function computeSinglePoseMetrics(landmarks, groups, pose) {
     eyebrowLengthToEyeRatio,
     browThicknessRatio,
     browArchHeight,
+    eyelidGapRatio,
     eyeApertureRatio,
     eyeWidthToFaceRatio,
     eyeSpacingRatio,
@@ -391,6 +399,7 @@ export function computeMeasurements(capturedPoses, groups) {
     eyebrowLengthToEyeRatio: primary.eyebrowLengthToEyeRatio,
     browThicknessRatio: primary.browThicknessRatio,
     browArchHeight: primary.browArchHeight,
+    eyelidGapRatio: primary.eyelidGapRatio,
     eyeApertureRatio: primary.eyeApertureRatio,
     eyeWidthToFaceRatio: primary.eyeWidthToFaceRatio,
     eyeSpacingRatio: primary.eyeSpacingRatio,

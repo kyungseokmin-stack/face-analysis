@@ -50,6 +50,18 @@ export function tier5(value, [lowMax, midLowMax, midHighMax, highMax]) {
   return 'veryHigh';
 }
 
+/**
+ * 값을 3단계(low/mid/high)로 나눈다. 문헌상 근거가 5단계(veryLow~veryHigh)로 세분화된
+ * 서로 다른 뉘앙스를 댈 만큼 두텁지 않은 항목(예: 전택궁)에 쓴다 — 실제로는 "좋다/보통/
+ * 나쁘다" 수준의 이분법에 가까운 개념을 5단계인 척 억지로 쪼개지 않기 위한 구분이다.
+ */
+export function tier3(value, [lowMax, highMin]) {
+  if (value == null || !Number.isFinite(value)) return 'mid';
+  if (value < lowMax) return 'low';
+  if (value > highMin) return 'high';
+  return 'mid';
+}
+
 // ---------------------------------------------------------------------------
 // 삼정(三停) — 얼굴을 세 구간으로 나눠 인생의 초년/중년/말년운을 살피는 틀
 // 상정: 발제(髮際, 이마 시작선) ~ 인당(印堂, 눈썹 사이)  → 15~30세, 초년운·부모운
@@ -423,11 +435,11 @@ export function classifyFaceShape(measurements) {
 // 십이궁(十二宮) 중, 얼굴 랜드마크로 위치를 특정할 수 있는 주요 궁만 선별
 // ---------------------------------------------------------------------------
 export const SIBIGUNG_INFO = {
-  title: '십이궁(十二宮) 중 주요 6궁',
+  title: '십이궁(十二宮) 중 주요 7궁',
   source: 'liuzhuang',
   description:
     '얼굴 각 부위에 인생의 열두 영역(궁宮)을 대응시키는 전통적 틀입니다. 이번 리포트에서는 랜드마크로 위치 특정이 비교적 명확한 ' +
-    '여섯 궁만 소개합니다.',
+    '일곱 궁만 소개합니다.',
   gungs: {
     myeong: { label: '명궁(命宮)', region: '양 눈썹 사이 (인당)', desc: '성격의 그릇과 정신적 여유를 보는 자리' },
     gwallok: { label: '관록궁(官祿宮)', region: '이마 정중앙', desc: '직업운·명예운을 보는 자리' },
@@ -435,7 +447,19 @@ export const SIBIGUNG_INFO = {
     hyeongje: { label: '형제궁(兄弟宮)', region: '눈썹', desc: '형제·동료복을 보는 자리' },
     bubu: { label: '부부궁(夫妻宮)', region: '눈꼬리(간문)', desc: '배우자운을 보는 자리' },
     nobok: { label: '노복궁(奴僕宮)', region: '턱 끝', desc: '아랫사람 복, 말년의 대인관계를 보는 자리' },
+    jeontaek: { label: '전택궁(田宅宮)', region: '눈썹과 눈 사이 (눈두덩이)', desc: '부동산·유산운을 보는 자리' },
   },
+};
+
+// 전택궁(눈두덩이 간격) — 눈썹-눈 사이 간격/눈 너비. 아직 실사용자 캡처로 검증된 경계값이
+// 아니라 다른 비율들의 스케일(예: browThicknessRatio 0.16~0.32)을 참고한 잠정 추정치다.
+// 문헌상 근거도 "넓다/좁다" 이분법 수준에 가까워, 5단계가 아닌 3단계(tier3)로 다룬다.
+export const EYELID_GAP_BOUNDS = [0.32, 0.55];
+
+const JEONTAEK_TEXT = {
+  low: '눈썹과 눈 사이(눈두덩이, 전택궁)가 좁은 편입니다. 전통적으로 재물을 아끼고 알뜰하게 관리하는 근면·절약형으로 풀이하나, 여유가 부족해 조급해지기 쉽고 부동산·유산과는 인연이 옅어 스스로 기반을 일궈야 하는 상으로도 봅니다.',
+  mid: '눈썹과 눈 사이(전택궁)의 너비가 무난한 편으로, 재물운에 특별한 쏠림 없이 흘러가는 상입니다.',
+  high: '눈썹과 눈 사이(눈두덩이, 전택궁)가 넓게 트인 편입니다. 전통적으로 도량이 크고 부모덕·유산복이 있어 여유롭게 재물을 관리하는 상으로 풀이하나, 지나치게 넓으면 씀씀이가 헤퍼지거나 매사에 나태해 보일 수 있는 상으로도 봅니다.',
 };
 
 export function interpretSibigung(measurements) {
@@ -508,6 +532,11 @@ export function interpretSibigung(measurements) {
         : chinTier === 'low' || chinTier === 'veryLow'
         ? '남에게 기대기보다 스스로 해결해 나가는 상으로 전통적으로 풀이하는데, 노복궁 자리인 턱 끝이 갸름한 것이 그 근거입니다.'
         : '아랫사람 복이 크게 넘치거나 모자라지 않는 상으로 풀이하는데, 노복궁 자리인 턱 끝의 너비가 무난한 범위에 있기 때문입니다.',
+  });
+
+  notes.push({
+    gung: 'jeontaek',
+    text: JEONTAEK_TEXT[tier3(measurements.eyelidGapRatio, EYELID_GAP_BOUNDS)],
   });
 
   return notes;
