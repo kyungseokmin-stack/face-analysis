@@ -182,7 +182,12 @@ const FOREHEAD_WIDTH_TEXT = {
   low: '남악(이마)이 다소 좁은 편으로, 전통적으로 부모덕에 기대기보다 스스로 길을 개척해야 하는 상으로 풀이합니다.',
   mid: '남악(이마)의 너비가 무난한 편으로, 초년운이 두드러지거나 눌리지 않는 균형 잡힌 상입니다.',
   high: '남악(이마)이 넓은 편으로, 전통적으로 총명함과 초년의 기회를 뜻하는 상으로 풀이합니다.',
-  veryHigh: '남악(이마)이 매우 넓게 발달한 편으로, 전통적으로 총명함과 초년 성취운이 강한 상으로 풀이합니다.',
+  // 주의: 이전 veryHigh 문구는 high 문구에 "매우/강한"만 덧붙인 정도 차이뿐이라, 5단계처럼
+  // 보이지만 실은 3단계(가짜 5단계)에 가까웠다. 다른 항목들(NOSE_PROMINENCE_TEXT 등)처럼
+  // 극단값에는 "지나치면"류의 반전 뉘앙스를 넣어 질적으로 다른 함의를 담았다 — 이 반전은
+  // 확정된 문헌 인용이 아니라, "무엇이든 지나치면 흉이 된다(太過則凶)"는 관상학의 통상적
+  // 화법을 이 항목에도 유추 적용한 것임을 밝힌다.
+  veryHigh: '남악(이마)이 매우 넓게 발달한 편입니다. 전통적으로 총명함과 초년 성취운이 강한 상으로 보는 한편, 이마가 지나치게 넓으면 자기 주장이 강해지고 아래턱과의 균형이 무너져 고집스러워 보일 수 있는 상으로도 풀이합니다.',
 };
 
 const CHIN_WIDTH_TEXT = {
@@ -190,7 +195,10 @@ const CHIN_WIDTH_TEXT = {
   low: '북악(턱)이 갸름한 편으로, 전통적으로 섬세하고 사려 깊은 상으로 풀이하나, 말년운을 안정적으로 다지려면 꾸준한 끈기가 필요한 상으로도 봅니다.',
   mid: '북악(턱)의 너비가 무난한 편으로, 말년운이 특별히 강조되지 않는 균형 잡힌 상입니다.',
   high: '북악(턱)이 넓은 편으로, 전통적으로 말년의 포용력과 지구력을 뜻하는 상으로 풀이합니다.',
-  veryHigh: '북악(턱)이 매우 넓고 안정적인 편으로, 전통적으로 말년의 포용력과 지구력이 강한 상으로 풀이합니다.',
+  // 주의: 이전 veryHigh 문구는 high 문구에 "매우/강한"만 덧붙인 정도 차이뿐이라, 5단계처럼
+  // 보이지만 실은 3단계(가짜 5단계)에 가까웠다. FOREHEAD_WIDTH_TEXT.veryHigh와 같은 이유로
+  // "지나치면"류의 반전 뉘앙스를 추가했다(문헌 직접 인용이 아니라 太過則凶 화법의 유추 적용).
+  veryHigh: '북악(턱)이 매우 넓고 안정적인 편입니다. 전통적으로 말년의 포용력과 지구력이 강한 상으로 보는 한편, 턱이 지나치게 넓고 발달하면 고집스럽고 완고해 보여 주변과 타협이 어려운 상으로도 풀이합니다.',
 };
 
 export function interpretOak({ noseProminence, cheekBalance, chinWidthRatio, foreheadWidthRatio }) {
@@ -265,19 +273,27 @@ const BROW_THICKNESS_TEXT = {
   veryHigh: '눈썹이 매우 짙고 뚜렷한 편입니다. 전통적으로 결단력과 추진력이 강한 상으로 풀이하나, 지나치면 고집이 세고 다혈질적인 상으로도 봅니다.',
 };
 
+// 눈썹 곡률(archHeight)의 3단계 경계값. 원래는 tier5/tier3 유틸을 쓰지 않고 if/else로
+// 하드코딩되어 있었다(> 0.28 / > 0.15 / else). 그 경계값 자체(0.28, 0.15)는 실사용자
+// 검증 근거가 코드에 없던 원래 값을 그대로 옮긴 것으로, 이번에 새로 조정한 것은 아니다 —
+// "눈썹이 눈보다 길다/짙다"류의 다른 항목들처럼 실측 캡처로 보정된 값이 아니라는 점을
+// 정직하게 남겨 둔다. 문헌 근거도 유엽미(柳葉眉)/일자미(一字眉) 같은 계열 구분 수준으로,
+// 5단계로 세분화할 만큼 두텁지 않다고 판단해 tier3으로 다룬다(가짜 5단계를 만들지 않기 위함).
+const EYEBROW_ARCH_BOUNDS = [0.15, 0.28];
+
+const EYEBROW_ARCH_TEXT = {
+  low: '눈썹이 완만하고 일자에 가까운 편으로, 전통적으로 침착하고 우직한 상(일자미一字眉 계열)으로 풀이합니다.',
+  mid: '눈썹이 완만한 곡선을 이루는 편으로, 전통적으로 온화하면서도 사교적인 상으로 풀이합니다.',
+  high: '눈썹의 곡선이 뚜렷하게 휘어 있는 편으로, 전통적으로 재치 있고 사교적인 상(유엽미柳葉眉 계열)으로 풀이합니다.',
+};
+
 export function interpretEyebrow({ lengthToEyeRatio, thicknessRatio, archHeight }) {
   const parts = [];
   parts.push(BROW_LENGTH_TEXT[tier5(lengthToEyeRatio, BROW_LENGTH_BOUNDS)]);
   parts.push(BROW_THICKNESS_TEXT[tier5(thicknessRatio, BROW_THICKNESS_BOUNDS)]);
 
   if (archHeight != null) {
-    if (archHeight > 0.28) {
-      parts.push('눈썹의 곡선이 뚜렷하게 휘어 있는 편으로, 전통적으로 재치 있고 사교적인 상(유엽미柳葉眉 계열)으로 풀이합니다.');
-    } else if (archHeight > 0.15) {
-      parts.push('눈썹이 완만한 곡선을 이루는 편으로, 전통적으로 온화하면서도 사교적인 상으로 풀이합니다.');
-    } else {
-      parts.push('눈썹이 완만하고 일자에 가까운 편으로, 전통적으로 침착하고 우직한 상(일자미一字眉 계열)으로 풀이합니다.');
-    }
+    parts.push(EYEBROW_ARCH_TEXT[tier3(archHeight, EYEBROW_ARCH_BOUNDS)]);
   }
   return { text: parts };
 }
@@ -321,19 +337,28 @@ export function interpretEye({ widthToFaceRatio, apertureRatio, spacingRatio }) 
 }
 
 const NOSE_WIDTH_TEXT = {
-  veryLow: '코가 매우 갸름한 편입니다. 전통적으로 명예나 성취를 재물보다 중시하는 상으로 풀이합니다.',
+  // 주의: 이전 veryLow 문구는 low 문구와 "매우/정도"만 다를 뿐 내용이 사실상 같아 가짜
+  // 5단계에 가까웠다. 콧망울이 지나치게 갸름하면 재물을 담는 그릇 자체가 좁다고 보는
+  // 통속적 풀이를 추가해, veryLow에만 있는 질적 뉘앙스(재물이 좀처럼 붙지 않음)를 넣었다.
+  veryLow: '코가 매우 갸름한 편입니다. 전통적으로 명예나 성취를 재물보다 중시하는 상으로 보는 한편, 재백궁(콧망울)의 그릇 자체가 좁아 큰 재물이 붙기보다는 씀씀이를 아껴 스스로 모아야 하는 상으로도 풀이합니다.',
   low: '코가 갸름한 편입니다. 전통적으로 재물보다 명예나 성취를 중시하는 상으로 풀이합니다.',
   mid: '콧망울(코 너비)이 표준 범위에 들어, 재물운이 유난히 튀지 않는 편입니다.',
   high: '콧망울(코 너비)이 넓게 자리 잡은 편입니다. 전통적으로 재물을 모으고 지키는 힘이 좋은 상(재백궁財帛宮이 튼튼함)으로 풀이합니다.',
   veryHigh: '콧망울(코 너비)이 매우 넓은 편입니다. 전통적으로 재물을 모으고 지키는 힘이 매우 좋은 상으로 보는 한편, "태과즉흉(太過則凶, 지나치면 흉이 된다)"이라 하여 콧망울이 지나치게 벌어지고 콧구멍이 드러나 보이면 오히려 재물이 새어나간다고 풀이하기도 하니, 씀씀이를 관리하는 습관이 도움이 되는 상으로 봅니다.',
 };
 
+// 주의: 이전 버전은 다섯 단계가 모두 "순발력→유연→무난→신중→매우 신중"처럼 강도
+// 부사만 갈아 끼운 가짜 5단계였다(같은 "임기응변 vs 계획성" 축 위에서 정도만 다름).
+// veryLow/veryHigh 양극단에는 그 정도가 지나쳤을 때의 반전 뉘앙스(계획성 부족으로 인한
+// 변수, 지나친 신중함으로 인한 결단 지연)를 추가해, 이 파일의 다른 항목들처럼 극단에서
+// 질적으로 다른 함의가 생기도록 했다. 다만 이 반전은 확정된 문헌 인용이 아니라 "지나치면
+// 흉이 된다(太過則凶)"는 통상적 화법을 유추 적용한 것이다.
 const NOSE_LENGTH_TEXT = {
-  veryLow: '코의 길이가 중정(中停)에서 짧은 비중을 차지하는 편으로, 전통적으로 순발력 있고 즉흥적인 기질을 보는 상입니다.',
+  veryLow: '코의 길이가 중정(中停)에서 짧은 비중을 차지하는 편입니다. 전통적으로 순발력 있고 즉흥적인 기질을 보는 상으로 풀이하나, 계획을 세우기보다 그때그때 대응하는 쪽이라 중년운의 변수에 미리 대비하는 습관을 들이면 좋은 상으로도 봅니다.',
   low: '코의 길이가 중정에서 다소 짧은 비중을 차지하는 편으로, 전통적으로 유연하고 임기응변에 강한 상입니다.',
   mid: '코의 길이가 중정(中停)에서 무난한 비중을 차지하는 편으로, 균형 잡힌 중년운을 보는 상입니다.',
   high: '코의 길이가 중정(中停)에서 넉넉한 비중을 차지하는 편으로, 전통적으로 신중하고 계획적인 중년운을 보는 상입니다.',
-  veryHigh: '코의 길이가 중정(中停)에서 매우 넉넉한 비중을 차지하는 편으로, 전통적으로 매우 신중하고 치밀한 중년운을 보는 상입니다.',
+  veryHigh: '코의 길이가 중정(中停)에서 매우 넉넉한 비중을 차지하는 편입니다. 전통적으로 매우 신중하고 치밀한 중년운을 보는 상으로 풀이하는 한편, 지나치게 재고 따지다 결단이 늦어져 기회를 놓치기 쉬운 상으로도 봅니다.',
 };
 
 export function interpretNose({ widthToFaceRatio, lengthToFaceRatio, prominence }) {
@@ -462,50 +487,117 @@ const JEONTAEK_TEXT = {
   high: '눈썹과 눈 사이(눈두덩이, 전택궁)가 넓게 트인 편입니다. 전통적으로 도량이 크고 부모덕·유산복이 있어 여유롭게 재물을 관리하는 상으로 풀이하나, 지나치게 넓으면 씀씀이가 헤퍼지거나 매사에 나태해 보일 수 있는 상으로도 봅니다.',
 };
 
+// ---------------------------------------------------------------------------
+// 십이궁 개별 궁 문구 — 3단계(가짜 5단계 방지) vs 5단계 재구성 여부를 궁별로 따로 판단했다.
+//
+// 명궁(eyeSpacingRatio)·관록궁(foreheadWidthRatio)·노복궁(chinWidthRatio)은 오관/오악에서
+// 이미 같은 측정치로 5단계 문구(EYE_SPACING_TEXT/FOREHEAD_WIDTH_TEXT/CHIN_WIDTH_TEXT)를 쓰고
+// 있지만, 그 궁이 전통적으로 대표하는 함의가 오관/오악의 함의와 뚜렷이 다르다고 판단해 궁
+// 전용 5단계 문구를 새로 썼다:
+//   - 명궁: 눈-감찰관(EYE_SPACING_TEXT)이 "성격·부부관계"를 보는 것과 달리, 명궁은 "그릇의
+//     크기·정신적 여유가 다른 운을 얼마나 담아내는가"라는 총체적 프레임으로 전해진다.
+//   - 관록궁: 남악-이마(FOREHEAD_WIDTH_TEXT)가 "총명함·부모덕·초년운"을 보는 것과 달리,
+//     관록궁은 "조직 내 직위·명예의 오르내림"이라는 더 좁은 프레임으로 전해진다.
+//   - 노복궁: 북악-턱(CHIN_WIDTH_TEXT)이 "말년의 안정·의지·재물을 담는 그릇"을 보는 것과
+//     달리, 노복궁은 "아랫사람이 따르는 정도·리더십의 무게"라는 관계 중심 프레임으로 전해진다.
+//
+// 재백궁(noseWidthToFaceRatio)·형제궁(eyebrowLengthToEyeRatio)은 반대로 판단했다. 재백궁은
+// "코=재물"이라는 개념 자체가 오관-코(NOSE_WIDTH_TEXT)와 문헌상 사실상 동일한 개념이고,
+// 형제궁도 "눈썹=형제·동료복"이라는 개념이 오관-눈썹(BROW_LENGTH_TEXT)과 동일하다 — 서로
+// 다른 5개의 뉘앙스를 억지로 새로 쓰면 오관 문구를 살짝 바꿔 쓴 것에 지나지 않아 오히려
+// "가짜 5단계"가 된다. 그래서 이 둘은 3단계(tier3)로 정직하게 유지한다.
+// ---------------------------------------------------------------------------
+
+const MYEONG_TEXT = {
+  veryLow: '명궁(인당)이 매우 좁게 자리 잡은 편입니다. 명궁은 전통적으로 그 사람됨의 그릇과 정신적 여유를 보는 자리로 전해지는데, 이렇게 좁으면 한 가지에 깊이 몰두하는 그릇이나 마음의 여유가 좁아 작은 일에도 근심이 앞서고, 다른 궁이 가진 복도 그릇이 작아 다 담아내지 못하는 상으로 풀이하기도 합니다.',
+  low: '명궁(인당)이 좁은 편입니다. 전통적으로 한 가지에 집중하는 그릇으로 보나, 정신적 여유를 넉넉히 갖추려면 스스로 마음을 다스리는 노력이 필요한 상으로 풀이합니다.',
+  mid: '명궁(인당)이 한쪽으로 치우치지 않아, 그릇의 크기와 정신적 여유가 균형 잡힌 상으로 풀이합니다.',
+  high: '명궁(인당)이 넓게 자리 잡은 편입니다. 전통적으로 그릇이 크고 정신적 여유가 있어 웬만한 풍파에도 흔들리지 않고 복을 잘 담아내는 자리로 풀이합니다.',
+  veryHigh: '명궁(인당)이 매우 넓게 트인 편입니다. 전통적으로 그릇이 크고 매사에 여유로워 다른 궁의 복까지 넉넉히 받아들이는 자리로 보는 한편, 그릇이 지나치게 넓으면 정작 한 가지에 집중하지 못하고 매사에 안일해질 수 있는 상으로도 풀이합니다.',
+};
+
+const GWALLOK_TEXT = {
+  veryLow: '관록궁(이마 정중앙)이 매우 아담한 편입니다. 관록궁은 전통적으로 조직 안에서의 직위·명예를 보는 자리로 전해지는데, 이렇게 아담하면 남의 밑에서 오래 인정받기를 기다리기보다 스스로 사업을 벌이거나 홀로 일하는 쪽이 맞는 상으로 풀이합니다.',
+  low: '관록궁(이마 정중앙)이 아담한 편입니다. 전통적으로 윗사람의 신망을 얻기까지 다소 시간이 걸리나, 착실히 실적을 쌓아 자리를 굳혀가는 상으로 풀이합니다.',
+  mid: '관록궁(이마 정중앙)이 무난한 편으로, 직위·명예의 오르내림이 크지 않은 안정적인 상으로 풀이합니다.',
+  high: '관록궁(이마 정중앙)이 넓고 반듯한 편입니다. 전통적으로 조직 안에서 윗사람의 눈에 들어 승진이 순조롭고 명예를 얻는 자리로 풀이합니다.',
+  veryHigh: '관록궁(이마 정중앙)이 매우 넓게 발달한 편입니다. 전통적으로 이른 나이에 큰 직위나 명예를 얻는 자리로 보는 한편, 그만큼 책임과 부담도 커져 스스로를 혹사하지 않도록 조심해야 하는 상으로도 풀이합니다.',
+};
+
+const NOBOK_TEXT = {
+  veryLow: '혼자 해결하는 힘은 강하지만 아랫사람을 곁에 두기보다 직접 나서야 마음이 놓이는 상으로 전통적으로 풀이하는데, 노복궁 자리인 턱 끝이 매우 갸름하고 뾰족한 것이 그 근거입니다. 아랫사람 복을 기대하기보다 스스로 힘을 기르는 쪽이 맞는 자리로 봅니다.',
+  low: '남에게 기대기보다 스스로 해결해 나가는 상으로 전통적으로 풀이하는데, 노복궁 자리인 턱 끝이 갸름한 것이 그 근거입니다.',
+  mid: '아랫사람 복이 크게 넘치거나 모자라지 않는 상으로 풀이하는데, 노복궁 자리인 턱 끝의 너비가 무난한 범위에 있기 때문입니다.',
+  high: '아랫사람·주변 사람의 도움을 잘 받는 상으로 전통적으로 풀이하는데, 노복궁 자리인 턱 끝이 넓고 두툼하게 자리 잡은 것이 그 근거입니다.',
+  veryHigh: '아랫사람이 잘 따르고 조직을 이끄는 그릇으로 전통적으로 풀이하는데, 노복궁 자리인 턱 끝이 매우 넓고 두툼하게 자리 잡은 것이 그 근거입니다. 다만 정에 이끌려 마냥 퍼주면 오히려 이용당하기 쉬우니 적당한 선을 지키는 것이 좋다고 보는 상입니다.',
+};
+
+// 재백궁(코 너비)의 3단계 경계값. NOSE_WIDTH_BOUNDS(5단계, 오관-코용)의 가운데 두 경계값을
+// 그대로 재사용해, "재백궁이 아담/보통/넉넉"의 3단계가 오관-코의 mid 구간과 정확히 일치하게
+// 맞췄다 — 서로 다른 임계값을 새로 정하면 같은 측정치에 대해 오관과 십이궁이 다른 지점에서
+// 판정이 갈리는 모순이 생기기 때문이다.
+const JAEBAEK_TIER3_BOUNDS = [NOSE_WIDTH_BOUNDS[1], NOSE_WIDTH_BOUNDS[2]];
+
+const JAEBAEK_TEXT = {
+  low: '재백궁(코)이 아담하여, 전통적으로 재물보다 명예를 우선하는 상으로 풀이합니다.',
+  mid: '재백궁(코)이 보통 수준이어서, 재물운에 특별한 쏠림 없이 흘러가는 상으로 풀이합니다.',
+  high: '재백궁(코)이 넉넉하여, 전통적으로 재물을 모으는 힘이 좋은 상으로 풀이합니다.',
+};
+
+// 형제궁(눈썹 길이)의 3단계 경계값. 위 재백궁과 같은 이유로 BROW_LENGTH_BOUNDS(5단계,
+// 오관-눈썹용)의 가운데 두 경계값을 그대로 재사용한다.
+const HYEONGJE_TIER3_BOUNDS = [BROW_LENGTH_BOUNDS[1], BROW_LENGTH_BOUNDS[2]];
+
+const HYEONGJE_TEXT = {
+  low: '형제궁(눈썹)이 짧은 편으로, 전통적으로 소수의 인연에 집중하는 상으로 풀이합니다.',
+  mid: '형제궁(눈썹)이 표준적인 길이로, 대인관계의 폭이 한쪽으로 기울지 않는 상으로 풀이합니다.',
+  high: '형제궁(눈썹)이 길게 발달하여, 전통적으로 형제·동료 복이 두터운 상으로 풀이합니다.',
+};
+
+// ---------------------------------------------------------------------------
+// 질액궁(疾厄宮, 산근山根) 관련 메모 — 우선순위 검토 후 이번에는 구현하지 않기로 했다.
+//
+// 아이디어: 코 돌출도(noseProminenceProfile)와 같은 방식으로, 코끝(landmarks[1]) 대신
+// 산근(양 눈 사이 콧대가 시작되는 지점)의 옆모습 돌출/함몰 정도를 재는 것.
+//
+// 보류 사유:
+// 1) landmarks[1](코끝)은 다수의 공개 자료에서 "nose tip"으로 일관되게 언급되어 이미
+//    noseProminenceProfile에서 신뢰하고 쓰고 있지만, 산근/미간(glabella·nasion)에 해당하는
+//    "단일 랜드마크 인덱스"는 확인할 수 없었다. MediaPipe 공식 이슈 트래커(google-ai-edge/
+//    mediapipe issue #1615)에서도 468개 포인트의 해부학적 대응이 "명확하지 않다"는 점이
+//    커뮤니티 차원에서도 그대로 언급되고 있어, 특정 인덱스를 단정해 쓰는 것은 위험하다고
+//    판단했다.
+// 2) 대안으로 (이 파일의 코 영역처럼) 전용 인덱스 없이 "눈썹 아래~눈 위, 얼굴 중앙" 좌표
+//    범위로 점들을 모아 산근 지점을 근사하는 방법도 검토했다. 이 방식 자체는 measurements.js가
+//    코 영역에 이미 쓰고 있는 기법이라 원리상 무리가 없지만, 그 좁은 중앙 밴드가 실제
+//    캡처에서 항상 유의미한 점을 포함하는지, 좌우 눈이 가까운 사람의 경우 눈 안쪽 모서리
+//    점이 섞여 들어가 값이 왜곡되지는 않는지는 실제(또는 실측에 가까운) 캡처로 검증하지
+//    않고서는 확신하기 어렵다.
+// 3) 결과적으로 "측정 자체가 가능할 것 같다"는 감으로 새 궁을 만드는 것은 이 파일이 지켜온
+//    정직성 원칙(추측을 확정처럼 쓰지 않는다)에 어긋난다고 판단해, 질액궁 추가는 이번에는
+//    보류한다. 인덱스 확인 또는 실사용자 캡처 검증이 가능해지면 재검토할 것.
+// ---------------------------------------------------------------------------
+
 export function interpretSibigung(measurements) {
   const notes = [];
-  const eyeSpacingTier = tier5(measurements.eyeSpacingRatio, EYE_SPACING_BOUNDS);
   notes.push({
     gung: 'myeong',
-    text:
-      eyeSpacingTier === 'high' || eyeSpacingTier === 'veryHigh'
-        ? '명궁(인당)이 넓게 트여 있어, 전통적으로 도량이 크고 여유로운 성정으로 풀이합니다.'
-        : eyeSpacingTier === 'low' || eyeSpacingTier === 'veryLow'
-        ? '명궁(인당)이 좁고 다부지게 자리 잡아, 전통적으로 집중력 있고 야무진 성정으로 풀이합니다.'
-        : '명궁(인당)이 한쪽으로 치우치지 않아, 담담하고 안정된 성정으로 풀이합니다.',
+    text: MYEONG_TEXT[tier5(measurements.eyeSpacingRatio, EYE_SPACING_BOUNDS)],
   });
 
-  const foreheadTier = tier5(measurements.foreheadWidthRatio, FOREHEAD_WIDTH_BOUNDS);
   notes.push({
     gung: 'gwallok',
-    text:
-      foreheadTier === 'high' || foreheadTier === 'veryHigh'
-        ? '관록궁(이마 중앙)이 넓고 반듯하여, 전통적으로 직업적 성취운이 좋은 상으로 풀이합니다.'
-        : foreheadTier === 'low' || foreheadTier === 'veryLow'
-        ? '관록궁(이마 중앙)이 아담하여, 전통적으로 꾸준히 쌓아가는 대기만성형 직업운으로 풀이합니다.'
-        : '관록궁(이마 중앙)이 평이한 편으로, 직업운에 이렇다 할 굴곡이 없는 상으로 풀이합니다.',
+    text: GWALLOK_TEXT[tier5(measurements.foreheadWidthRatio, FOREHEAD_WIDTH_BOUNDS)],
   });
 
-  const noseTier = tier5(measurements.noseWidthToFaceRatio, NOSE_WIDTH_BOUNDS);
   notes.push({
     gung: 'jaebaek',
-    text:
-      noseTier === 'high' || noseTier === 'veryHigh'
-        ? '재백궁(코)이 넉넉하여, 전통적으로 재물을 모으는 힘이 좋은 상으로 풀이합니다.'
-        : noseTier === 'low' || noseTier === 'veryLow'
-        ? '재백궁(코)이 아담하여, 전통적으로 재물보다 명예를 우선하는 상으로 풀이합니다.'
-        : '재백궁(코)이 보통 수준이어서, 재물운에 특별한 쏠림 없이 흘러가는 상으로 풀이합니다.',
+    text: JAEBAEK_TEXT[tier3(measurements.noseWidthToFaceRatio, JAEBAEK_TIER3_BOUNDS)],
   });
 
-  const browTier = tier5(measurements.eyebrowLengthToEyeRatio, BROW_LENGTH_BOUNDS);
   notes.push({
     gung: 'hyeongje',
-    text:
-      browTier === 'high' || browTier === 'veryHigh'
-        ? '형제궁(눈썹)이 길게 발달하여, 전통적으로 형제·동료 복이 두터운 상으로 풀이합니다.'
-        : browTier === 'low' || browTier === 'veryLow'
-        ? '형제궁(눈썹)이 짧은 편으로, 전통적으로 소수의 인연에 집중하는 상으로 풀이합니다.'
-        : '형제궁(눈썹)이 표준적인 길이로, 대인관계의 폭이 한쪽으로 기울지 않는 상으로 풀이합니다.',
+    text: HYEONGJE_TEXT[tier3(measurements.eyebrowLengthToEyeRatio, HYEONGJE_TIER3_BOUNDS)],
   });
 
   if (measurements.cheekBalance != null) {
@@ -518,20 +610,13 @@ export function interpretSibigung(measurements) {
     });
   }
 
-  // 턱은 오악(북악)과 십이궁(노복궁) 두 틀 모두에서 chinWidthRatio로 판정되어 문헌상으로도
-  // 정당하지만(각각 말년·의지력, 아랫사람 복이라는 별개 함의를 지님), 두 문구가 같은 "N악/궁이
-  // X한 편으로/하여, 전통적으로 Y" 어순으로 반복되면 읽을 때 겹쳐 보인다. 아랫사람 복이라는
-  // 결과를 먼저 말하고 근거(턱 모양)를 뒤에 붙이는 역순 구조로 바꿔, CHIN_WIDTH_TEXT(오악)의
-  // 어순과 겹치지 않게 했다.
-  const chinTier = tier5(measurements.chinWidthRatio, CHIN_WIDTH_BOUNDS);
+  // 턱은 오악(북악)과 십이궁(노복궁) 두 틀 모두에서 chinWidthRatio로 판정되지만, 위에서
+  // 설명했듯 노복궁은 "아랫사람 복·리더십"이라는 CHIN_WIDTH_TEXT(오악, 말년 안정·재물창고)와는
+  // 별개의 함의를 담아 새로 썼다. 결과를 먼저 말하고 근거(턱 모양)를 뒤에 붙이는 역순 구조도
+  // CHIN_WIDTH_TEXT의 어순과 겹치지 않도록 유지한다.
   notes.push({
     gung: 'nobok',
-    text:
-      chinTier === 'high' || chinTier === 'veryHigh'
-        ? '아랫사람·주변 사람의 도움을 잘 받는 상으로 전통적으로 풀이하는데, 노복궁 자리인 턱 끝이 넓고 두툼하게 자리 잡은 것이 그 근거입니다.'
-        : chinTier === 'low' || chinTier === 'veryLow'
-        ? '남에게 기대기보다 스스로 해결해 나가는 상으로 전통적으로 풀이하는데, 노복궁 자리인 턱 끝이 갸름한 것이 그 근거입니다.'
-        : '아랫사람 복이 크게 넘치거나 모자라지 않는 상으로 풀이하는데, 노복궁 자리인 턱 끝의 너비가 무난한 범위에 있기 때문입니다.',
+    text: NOBOK_TEXT[tier5(measurements.chinWidthRatio, CHIN_WIDTH_BOUNDS)],
   });
 
   notes.push({
@@ -618,9 +703,47 @@ const OAK_LIFE_KEYWORD = {
   veryHigh: '강하게 밀어붙이되 주변과의 조화에 마음을 써야 하는 성향',
 };
 
+// 종합 총평의 문장 "골격" 자체를 여러 버전으로 분기한다. 기존에는 tier/분류 결과로
+// 어구(짧은 형용구)만 바꿔 끼우고 문장 틀은 항상 하나였는데, 이 때문에 서로 다른 사람도
+// 리포트를 열었을 때 "전통적으로 ~로 보는데" 같은 상투구가 그대로 반복돼 인상이 비슷해
+// 보인다는 피드백이 있었다. 세 문장이 담아야 하는 정보(①얼굴형+삼정+오악, ②오관 조합,
+// ③삶의 흐름+성향 결론)는 그대로 유지하되, 그 정보를 어떤 어순·연결어로 엮을지를 tier
+// 조합에서 결정되는 인덱스로 골라 문장 구조 자체가 갈리도록 했다.
+const SYNTHESIS_SENTENCE1_TEMPLATES = [
+  // balanced: 삼정 스프레드가 작아 특정 구간이 도드라지지 않는 경우
+  (shapeLabel, samjeongPart, oakPart) =>
+    `${shapeLabel} 윤곽에 ${samjeongPart} 삼정(이마·코·턱의 비율)이 자리하고, 오악의 중심인 콧대 역시 ${oakPart} 편이라 전체적으로 안정된 인상을 줍니다.`,
+  // developed: 삼정 중 한 구간이 다른 구간보다 넉넉하게 발달한 경우
+  (shapeLabel, samjeongPart, oakPart) =>
+    `${shapeLabel} 바탕 위로 ${samjeongPart} 삼정(이마·코·턱의 비율)이 인상의 무게중심을 이루고, 오악에서는 ${oakPart} 콧대가 그 흐름에 힘을 보태는 인상입니다.`,
+  // compressed: 삼정 중 한 구간이 다른 구간보다 좁게 눌린 경우
+  (shapeLabel, samjeongPart, oakPart) =>
+    `${shapeLabel} 윤곽 안에서 ${samjeongPart} 삼정(이마·코·턱의 비율)이 눈에 띄는 한편, 오악의 중심인 콧대는 ${oakPart} 편이라 무게중심을 다른 구간에서 찾는 인상입니다.`,
+];
+
+const SYNTHESIS_SENTENCE2_TEMPLATES = [
+  (browPart, eyePart, mouthPart) =>
+    `이목구비(오관) 중에서는 ${browPart}과 ${eyePart}, ${mouthPart}가 함께 나타나 이 사람만의 개성으로 도드라지는 조합으로 풀이합니다.`,
+  (browPart, eyePart, mouthPart) =>
+    `오관(이목구비)을 살펴보면 ${eyePart}에 ${browPart}과 ${mouthPart}가 겹쳐, 인상의 결을 만드는 조합으로 풀이합니다.`,
+  (browPart, eyePart, mouthPart) =>
+    `${browPart}과 ${mouthPart}가 ${eyePart}와 어우러지며, 오관(이목구비) 전체에서 이 사람만의 인상을 완성하는 조합으로 풀이합니다.`,
+];
+
+const SYNTHESIS_SENTENCE3_TEMPLATES = [
+  (samjeongLifePart, oakLifePart) =>
+    `전통 관상에서는 이런 조합을 ${samjeongLifePart}에 ${oakLifePart}이 더해진 인상으로 보는데, 이는 타고난 골격에 대한 전통적 해석일 뿐 실제 삶의 결과는 본인의 노력과 선택에 달려 있습니다.`,
+  (samjeongLifePart, oakLifePart) =>
+    `${samjeongLifePart}에 ${oakLifePart}까지 겹쳐, 옛 관상가라면 이 골격을 하나의 흐름으로 묶어 풀이했을 법합니다. 다만 이는 타고난 골격에 대한 해석일 뿐, 실제 삶은 본인의 노력과 선택으로 얼마든지 달라집니다.`,
+  (samjeongLifePart, oakLifePart) =>
+    `이 골격을 두고 고전에서는 ${samjeongLifePart}과 ${oakLifePart}이 겹친 상으로 짚었을 법한데, 어디까지나 타고난 골격에 대한 전통적 해석일 뿐 실제 삶의 결과는 본인의 노력과 선택에 달려 있습니다.`,
+];
+
 /**
  * 종합 총평 문단을 구성한다. 각 section이 이미 문장으로 풀어낸 해석을 그대로 복사하지
- * 않고, 같은 측정치의 tier/분류 결과에서 뽑은 짧은 어구만으로 새 문장 2개를 만든다.
+ * 않고, 같은 측정치의 tier/분류 결과에서 뽑은 짧은 어구로 새 문장 3개를 만든다. 문장의
+ * 틀(위 SYNTHESIS_SENTENCE*_TEMPLATES) 자체도 tier 조합에 따라 갈라지므로, 같은 어구를
+ * 쓰더라도 사람마다 문장 구조가 달라진다.
  * @param {object} measurements - buildReport에 전달된 원본 측정치 (새 측정치를 추가하지 않음)
  * @param {{shapeLabel: string, samjeongSpread: number, samjeongDominantKey: string, samjeongDominantDirection: string}} ctx
  */
@@ -628,24 +751,37 @@ export function summarizeSynthesis(
   measurements,
   { shapeLabel, samjeongSpread, samjeongDominantKey, samjeongDominantDirection }
 ) {
-  const samjeongPart =
-    samjeongSpread < SAMJEONG_BALANCE_THRESHOLD
-      ? SAMJEONG_SUMMARY_KEYWORD.balanced
-      : SAMJEONG_SUMMARY_KEYWORD[samjeongDominantKey][samjeongDominantDirection];
-  const oakPart = OAK_SUMMARY_KEYWORD[tier5(measurements.noseProminence, NOSE_PROMINENCE_BOUNDS)];
-  const eyebrowPart = EYEBROW_SUMMARY_KEYWORD[tier5(measurements.eyebrowLengthToEyeRatio, BROW_LENGTH_BOUNDS)];
-  const mouthPart = MOUTH_SUMMARY_KEYWORD[tier5(measurements.mouthWidthToNoseRatio, MOUTH_RATIO_BOUNDS)];
-  const eyePart = EYE_SPACING_SUMMARY_KEYWORD[tier5(measurements.eyeSpacingRatio, EYE_SPACING_BOUNDS)];
-  const samjeongLifePart =
-    samjeongSpread < SAMJEONG_BALANCE_THRESHOLD
-      ? SAMJEONG_LIFE_KEYWORD.balanced
-      : SAMJEONG_LIFE_KEYWORD[samjeongDominantKey][samjeongDominantDirection];
-  const oakLifePart = OAK_LIFE_KEYWORD[tier5(measurements.noseProminence, NOSE_PROMINENCE_BOUNDS)];
+  const balanced = samjeongSpread < SAMJEONG_BALANCE_THRESHOLD;
+  const samjeongPart = balanced
+    ? SAMJEONG_SUMMARY_KEYWORD.balanced
+    : SAMJEONG_SUMMARY_KEYWORD[samjeongDominantKey][samjeongDominantDirection];
+  const oakTier = tier5(measurements.noseProminence, NOSE_PROMINENCE_BOUNDS);
+  const oakPart = OAK_SUMMARY_KEYWORD[oakTier];
+  const browTier = tier5(measurements.eyebrowLengthToEyeRatio, BROW_LENGTH_BOUNDS);
+  const eyebrowPart = EYEBROW_SUMMARY_KEYWORD[browTier];
+  const mouthTier = tier5(measurements.mouthWidthToNoseRatio, MOUTH_RATIO_BOUNDS);
+  const mouthPart = MOUTH_SUMMARY_KEYWORD[mouthTier];
+  const eyeTier = tier5(measurements.eyeSpacingRatio, EYE_SPACING_BOUNDS);
+  const eyePart = EYE_SPACING_SUMMARY_KEYWORD[eyeTier];
+  const samjeongLifePart = balanced
+    ? SAMJEONG_LIFE_KEYWORD.balanced
+    : SAMJEONG_LIFE_KEYWORD[samjeongDominantKey][samjeongDominantDirection];
+  const oakLifePart = OAK_LIFE_KEYWORD[oakTier];
+
+  // 문장1: 삼정이 균형(balanced)인지, 어느 방향으로 치우쳤는지(developed/compressed)로
+  // 3갈래 중 하나를 고른다 — samjeongPart/samjeongLifePart를 고를 때 쓰는 것과 같은 분기라
+  // 문장 틀과 내용이 서로 어긋나지 않는다.
+  const sentence1Index = balanced ? 0 : samjeongDominantDirection === 'developed' ? 1 : 2;
+  // 문장2: 눈썹·눈·입 세 tier의 합을 사용해 다른 분기(문장1과는 별개 기준)로 어순을 고른다.
+  const sentence2Index = (TIER_INDEX[browTier] + TIER_INDEX[eyeTier] + TIER_INDEX[mouthTier]) % SYNTHESIS_SENTENCE2_TEMPLATES.length;
+  // 문장3: 오악(코)과 눈썹 tier 조합으로 또 다른 분기를 고른다 — 문장1(삼정 방향)과
+  // 겹치지 않는 기준을 써서, 같은 사람이라도 세 문장이 전부 같은 이유로 함께 바뀌지 않게 했다.
+  const sentence3Index = (TIER_INDEX[oakTier] + TIER_INDEX[browTier]) % SYNTHESIS_SENTENCE3_TEMPLATES.length;
 
   return [
-    `${shapeLabel} 바탕에 ${samjeongPart} 삼정(이마·코·턱의 비율)과 ${oakPart} 오악(콧대의 입체감)이 어우러진 인상입니다.`,
-    `이목구비(오관) 중에서는 ${eyebrowPart}과 ${eyePart}, ${mouthPart}가 함께 나타나 이 사람만의 개성으로 도드라지는 조합으로 풀이합니다.`,
-    `전통 관상에서는 이런 조합을 ${samjeongLifePart}에 ${oakLifePart}이 더해진 인상으로 보는데, 이는 타고난 골격에 대한 전통적 해석일 뿐 실제 삶의 결과는 본인의 노력과 선택에 달려 있습니다.`,
+    SYNTHESIS_SENTENCE1_TEMPLATES[sentence1Index](shapeLabel, samjeongPart, oakPart),
+    SYNTHESIS_SENTENCE2_TEMPLATES[sentence2Index](eyebrowPart, eyePart, mouthPart),
+    SYNTHESIS_SENTENCE3_TEMPLATES[sentence3Index](samjeongLifePart, oakLifePart),
   ];
 }
 
