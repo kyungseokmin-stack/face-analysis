@@ -46,7 +46,7 @@ export function buildReport(measurements) {
     id: 'synthesis',
     title: '종합 총평',
     source: null,
-    description: '아래 이마·코·턱 비율, 이목구비 등 세부 풀이를 한데 모아 쉬운 말로 먼저 정리한 요약입니다.',
+    description: '아래 이마·코·턱 비율, 이목구비 등 세부 풀이를 모아 쉬운 말로 먼저 정리했어요.',
     text: summarizeSynthesis(measurements, {
       shapeLabel: shapeData.label,
       samjeongSpread: samjeong.spread,

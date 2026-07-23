@@ -709,34 +709,39 @@ const OAK_LIFE_KEYWORD = {
 // 보인다는 피드백이 있었다. 세 문장이 담아야 하는 정보(①얼굴형+삼정+오악, ②오관 조합,
 // ③삶의 흐름+성향 결론)는 그대로 유지하되, 그 정보를 어떤 어순·연결어로 엮을지를 tier
 // 조합에서 결정되는 인덱스로 골라 문장 구조 자체가 갈리도록 했다.
+//
+// 문체: 각 항목 섹션(얼굴형/삼정/오악/오관/십이궁)은 "~로 풀이합니다"류의 격식체를
+// 유지하지만, 총평만큼은 리포트를 다 읽고 마지막에 만나는 "정리 코멘트"라 딱딱한 문어체
+// 대신 스타일리스트가 관찰하듯 담백하게 말해주는 해요체를 쓴다("~하네요/~인상이에요").
+// 다른 섹션과 총평 사이에 의도적인 톤 대비를 둔 것이다.
 const SYNTHESIS_SENTENCE1_TEMPLATES = [
   // balanced: 삼정 스프레드가 작아 특정 구간이 도드라지지 않는 경우
   (shapeLabel, samjeongPart, oakPart) =>
-    `${shapeLabel} 윤곽에 ${samjeongPart} 삼정(이마·코·턱의 비율)이 자리하고, 오악의 중심인 콧대 역시 ${oakPart} 편이라 전체적으로 안정된 인상을 줍니다.`,
+    `${shapeLabel} 얼굴이에요. 이마·코·턱 비율(삼정)을 보면 ${samjeongPart} 편이고, 콧대(오악의 중심)도 ${oakPart} 편이라 전체적으로 안정돼 보여요.`,
   // developed: 삼정 중 한 구간이 다른 구간보다 넉넉하게 발달한 경우
   (shapeLabel, samjeongPart, oakPart) =>
-    `${shapeLabel} 바탕 위로 ${samjeongPart} 삼정(이마·코·턱의 비율)이 인상의 무게중심을 이루고, 오악에서는 ${oakPart} 콧대가 그 흐름에 힘을 보태는 인상입니다.`,
+    `${shapeLabel} 얼굴에서 이마·코·턱 비율(삼정)을 보면 ${samjeongPart} 편이 눈에 띄고, 콧대(오악의 중심)도 ${oakPart} 편이라 그쪽에 힘이 실린 인상이에요.`,
   // compressed: 삼정 중 한 구간이 다른 구간보다 좁게 눌린 경우
   (shapeLabel, samjeongPart, oakPart) =>
-    `${shapeLabel} 윤곽 안에서 ${samjeongPart} 삼정(이마·코·턱의 비율)이 눈에 띄는 한편, 오악의 중심인 콧대는 ${oakPart} 편이라 무게중심을 다른 구간에서 찾는 인상입니다.`,
+    `${shapeLabel} 얼굴에서 이마·코·턱 비율(삼정)을 보면 ${samjeongPart} 편이 도드라지는데, 콧대(오악의 중심)는 ${oakPart} 편이라 무게중심이 다른 데 있는 느낌이에요.`,
 ];
 
 const SYNTHESIS_SENTENCE2_TEMPLATES = [
   (browPart, eyePart, mouthPart) =>
-    `이목구비(오관) 중에서는 ${browPart}과 ${eyePart}, ${mouthPart}가 함께 나타나 이 사람만의 개성으로 도드라지는 조합으로 풀이합니다.`,
+    `눈썹·눈·입을 보면 ${browPart}, ${eyePart}, ${mouthPart}가 함께 있어서 이 사람만의 개성이 확실히 드러나요.`,
   (browPart, eyePart, mouthPart) =>
-    `오관(이목구비)을 살펴보면 ${eyePart}에 ${browPart}과 ${mouthPart}가 겹쳐, 인상의 결을 만드는 조합으로 풀이합니다.`,
+    `${eyePart}에 ${browPart}과 ${mouthPart}까지 겹쳐서, 이목구비 전체에서 느껴지는 인상이 또렷해요.`,
   (browPart, eyePart, mouthPart) =>
-    `${browPart}과 ${mouthPart}가 ${eyePart}와 어우러지며, 오관(이목구비) 전체에서 이 사람만의 인상을 완성하는 조합으로 풀이합니다.`,
+    `${browPart}과 ${mouthPart}가 ${eyePart}와 어우러지면서, 얼굴에서 이 사람만의 결이 만들어지는 조합이에요.`,
 ];
 
 const SYNTHESIS_SENTENCE3_TEMPLATES = [
   (samjeongLifePart, oakLifePart) =>
-    `전통 관상에서는 이런 조합을 ${samjeongLifePart}에 ${oakLifePart}이 더해진 인상으로 보는데, 이는 타고난 골격에 대한 전통적 해석일 뿐 실제 삶의 결과는 본인의 노력과 선택에 달려 있습니다.`,
+    `예로부터 이런 얼굴은 ${samjeongLifePart}에 ${oakLifePart}이 겹친 사람으로 봤대요. 다만 이건 전통적으로 그렇다는 거고, 실제 삶은 본인 하기 나름이에요.`,
   (samjeongLifePart, oakLifePart) =>
-    `${samjeongLifePart}에 ${oakLifePart}까지 겹쳐, 옛 관상가라면 이 골격을 하나의 흐름으로 묶어 풀이했을 법합니다. 다만 이는 타고난 골격에 대한 해석일 뿐, 실제 삶은 본인의 노력과 선택으로 얼마든지 달라집니다.`,
+    `${samjeongLifePart}에 ${oakLifePart}까지 더해진 얼굴이라, 옛날 관상가라면 눈여겨봤을 조합이에요. 그래도 결국 실제 삶은 본인이 어떻게 사느냐에 달려 있어요.`,
   (samjeongLifePart, oakLifePart) =>
-    `이 골격을 두고 고전에서는 ${samjeongLifePart}과 ${oakLifePart}이 겹친 상으로 짚었을 법한데, 어디까지나 타고난 골격에 대한 전통적 해석일 뿐 실제 삶의 결과는 본인의 노력과 선택에 달려 있습니다.`,
+    `이런 얼굴은 예로부터 ${samjeongLifePart}과 ${oakLifePart}이 겹친 상으로 봤다고 해요. 어디까지나 전통적인 해석일 뿐, 실제 삶의 모습은 본인 하기 나름이겠죠.`,
 ];
 
 /**
