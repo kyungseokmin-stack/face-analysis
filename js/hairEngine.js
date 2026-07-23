@@ -81,7 +81,10 @@ export class HairEngine {
     this.segmenter = await ImageSegmenter.createFromOptions(filesetResolver, {
       baseOptions: {
         modelAssetPath: HAIR_MODEL_URL,
-        delegate: 'GPU',
+        // GPU 위임은 모바일 브라우저/인앱 웹뷰에서 WebGL 컨텍스트 제약으로 조용히
+        // 빈 결과를 내는 사례가 보고돼 있다. 이 모델은 정면 사진 한 장에 1회만 실행해
+        // 속도가 중요하지 않으므로, 더 폭넓게 지원되는 CPU로 안전하게 간다.
+        delegate: 'CPU',
       },
       runningMode: 'IMAGE',
       outputCategoryMask: true,
@@ -93,24 +96,37 @@ export class HairEngine {
   /**
    * @param {HTMLImageElement|HTMLCanvasElement} imageSource - 정면 캡처 이미지(1회만 호출)
    * @param {number} centerXRatio - 얼굴 중심 x좌표(0~1 정규화, measurements.js의 centerX와 같은 좌표계)
-   * @returns {number|null} 헤어라인 y좌표(0~1 정규화), 검출 실패 시 null
+   * @returns {{hairlineY: number|null, debug: string|null}} 헤어라인 y좌표(0~1 정규화)와,
+   *   검출 실패 시 원인 파악용 진단 정보(마스크 크기·카테고리 값 분포). 카테고리 인덱스
+   *   (1=머리카락) 가정이 실제와 다를 경우 이 히스토그램으로 바로 확인할 수 있다.
    */
   detectHairlineY(imageSource, centerXRatio) {
-    if (!this.segmenter) return null;
+    if (!this.segmenter) return { hairlineY: null, debug: 'segmenter가 초기화되지 않음' };
     const result = this.segmenter.segment(imageSource);
     const mask = result.categoryMask;
     if (!mask) {
       result.close?.();
-      return null;
+      return { hairlineY: null, debug: 'categoryMask가 비어 있음(outputCategoryMask 설정 미반영 가능성)' };
     }
     const width = mask.width;
     const height = mask.height;
     const data = mask.getAsUint8Array();
     const centerX = Math.round(centerXRatio * width);
     const row = findHairlineRow(data, width, height, centerX);
+    let debug = null;
+    if (row == null) {
+      // 실패 원인 진단: 마스크에 실제로 어떤 카테고리 값들이 얼마나 나타나는지 샘플링해
+      // 히스토그램을 만든다(전체 픽셀을 다 보면 느리므로 37픽셀 간격으로 샘플링).
+      const histogram = {};
+      for (let i = 0; i < data.length; i += 37) {
+        const v = data[i];
+        histogram[v] = (histogram[v] || 0) + 1;
+      }
+      debug = `mask ${width}x${height}, 카테고리 분포(샘플): ${JSON.stringify(histogram)}`;
+    }
     mask.close?.();
     result.close?.();
-    return row == null ? null : row / height;
+    return { hairlineY: row == null ? null : row / height, debug };
   }
 
   close() {
