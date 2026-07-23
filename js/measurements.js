@@ -242,12 +242,17 @@ function computeSinglePoseMetrics(landmarks, groups, pose, hairlineY) {
     noseProminence = clamp(0.5 + (raw / faceWidth) * 9, 0, 1);
   }
 
-  // --- 코 돌출도(옆모습 기반) ---
+  // --- 콧대 각도(옆모습 기반) ---
   // 정면 사진만으로는 MediaPipe가 추정하는 z(깊이)값의 오차가 커서, 실제로는 코가 낮은
   // 사람도 "매우 높음"으로 나오는 문제가 있었다. 고개를 45도 이상 돌린 옆모습에서는 코의
   // 실제 돌출이 이미지의 x/y 평면 위로 충분히 드러나므로, 그 각도에서는 z 대신 순수 기하로
-  // 계산한다 — 이마 위쪽 끝과 턱 아래쪽 끝을 잇는 "얼굴 옆선"에서 코끝(랜드마크 1)이 얼마나
-  // 벗어나 있는지를 재는데, 이는 전통적으로 옆모습 사진에서 콧대 높이를 가늠하는 방식과 같다.
+  // 계산한다.
+  //
+  // "돌출 거리"가 아니라 "각도"를 재는 이유: 코끝이 얼굴 옆선에서 같은 거리만큼 떨어져
+  // 있어도, 코가 길면 완만하게, 짧으면 가파르게 튀어나온 것이라 "오똑함"이라는 인상은
+  // 거리보다 산근(콧대 시작점)~코끝이 이루는 각도(비안각鼻顔角)에 더 가깝다. 산근의 정확한
+  // 랜드마크 인덱스는 확신할 수 없어(질액궁 검토 때와 같은 문제) 새로 도입하지 않고, 이미
+  // 신뢰하고 쓰는 눈썹 라인(browLineY) 높이를 산근의 근사 위치로 쓴다.
   let noseProminenceProfile = null;
   if (pose && Math.abs(pose.yaw) >= PROFILE_YAW_MIN_DEGREES) {
     const noseTip = landmarks[1];
@@ -259,16 +264,29 @@ function computeSinglePoseMetrics(landmarks, groups, pose, hairlineY) {
       if (!bottomPt || p.y > bottomPt.y) bottomPt = p;
     }
     if (noseTip && topPt && bottomPt) {
-      const lineLen = Math.hypot(bottomPt.x - topPt.x, bottomPt.y - topPt.y);
-      if (lineLen > 0) {
-        const raw = pointToLineDistance(noseTip, topPt, bottomPt) / lineLen;
-        // 회전각이 클수록 실제 돌출이 화면에 더 많이 드러나므로(sin(각도)에 비례), 다시
-        // 나눠 "정면 기준 돌출 비율"과 같은 스케일로 되돌린다.
-        const depthEquivalent = raw / Math.sin((Math.abs(pose.yaw) * Math.PI) / 180);
-        // 성인 옆모습에서 코끝~이마-턱 선 사이 거리는 대략 얼굴 길이의 6~7% 정도가 "보통"
-        // 수준으로 알려져 있다(문헌·의료 실측 데이터는 아닌 일반적 안면 비례 근사치). 이를
-        // 중간값(0.5)에 맞추고 배율을 곱해 0~1 범위로 펼친다.
-        noseProminenceProfile = clamp(0.5 + (depthEquivalent - 0.065) * 6, 0, 1);
+      const profileVec = { x: bottomPt.x - topPt.x, y: bottomPt.y - topPt.y };
+      const lineLen = Math.hypot(profileVec.x, profileVec.y);
+      const spanY = bottomPt.y - topPt.y;
+      if (lineLen > 0 && spanY !== 0) {
+        // 산근 근사점: 얼굴 옆선(이마~턱) 위에서 눈썹 높이(browLineY)에 해당하는 지점.
+        const t = clamp((browLineY - topPt.y) / spanY, 0, 1);
+        const nasionApprox = { x: topPt.x + t * profileVec.x, y: topPt.y + t * profileVec.y };
+        const profileUnit = { x: profileVec.x / lineLen, y: profileVec.y / lineLen };
+        const bridgeVec = { x: noseTip.x - nasionApprox.x, y: noseTip.y - nasionApprox.y };
+        // 코 길이 방향 성분(산근~코끝을 얼굴 옆선에 투영한 길이) — 회전각의 영향을 거의
+        // 받지 않는다(수직 방향 길이는 좌우 회전으로 크게 왜곡되지 않으므로).
+        const parallelComp = bridgeVec.x * profileUnit.x + bridgeVec.y * profileUnit.y;
+        // 얼굴 옆선에서 수직으로 벗어난 성분(돌출 깊이) — 회전각이 클수록 실제 돌출이 화면에
+        // 더 많이 드러나므로(sin(각도)에 비례), 나눠서 "정면 기준 돌출"과 같은 스케일로 되돌린다.
+        const rawPerp = pointToLineDistance(noseTip, topPt, bottomPt);
+        const perpComp = rawPerp / Math.sin((Math.abs(pose.yaw) * Math.PI) / 180);
+        if (parallelComp > 0) {
+          const bridgeAngleDeg = (Math.atan2(perpComp, parallelComp) * 180) / Math.PI;
+          // 비안각(鼻顔角) 30~40도 정도가 "보통" 수준의 콧대로 흔히 참고되는 범위다(특정
+          // 문헌의 정밀 수치가 아니라 일반적인 안면 성형 참고 범위를 기준점으로 삼은
+          // 근사치). 중간값(35도)을 0.5에 맞추고, 대략적인 변동폭을 기준으로 0~1로 펼친다.
+          noseProminenceProfile = clamp(0.5 + (bridgeAngleDeg - 35) * 0.018, 0, 1);
+        }
       }
     }
   }
