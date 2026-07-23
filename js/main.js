@@ -318,6 +318,7 @@ async function runAnalysis(capturedPoses) {
     // 브라우저, 네트워크 문제 등) 전체 분석이 멈추지 않도록 실패를 여기서 흡수하고,
     // hairlineY는 null로 두어 measurements.js가 기존 방식(윤곽 최상단)으로 되돌아가게 한다.
     let hairlineY = null;
+    let hairlineError = null;
     if (capturedPoses.front?.photoDataUrl && capturedPoses.front?.landmarks) {
       try {
         const centerXRatio = estimateCenterXRatio(capturedPoses.front.landmarks, groups);
@@ -329,11 +330,23 @@ async function runAnalysis(capturedPoses) {
         }
       } catch (err) {
         console.error('hairline detection failed', err);
+        hairlineError = err?.message || String(err);
       }
     }
 
     const measurements = computeMeasurements(capturedPoses, groups, hairlineY);
     const report = buildReport(measurements);
+
+    // 모바일에서는 개발자도구를 열기 번거로우므로, 헤어라인 검출이 예외로 실패한 경우
+    // 리포트 화면에서 바로 원인을 확인할 수 있도록 삼정 섹션 설명에 실제 에러 메시지를
+    // 덧붙인다. "시도는 됐지만 못 찾음"과는 구분되며(그 경우는 reportEngine.js가 이미
+    // 일반 안내 문구를 붙인다), 이건 어디까지나 임시 디버그용 표시다.
+    if (hairlineError) {
+      const samjeongSection = report.sections.find((s) => s.id === 'samjeong');
+      if (samjeongSection) {
+        samjeongSection.description += ` [디버그: 헤어라인 검출 중 오류 발생 — ${hairlineError}]`;
+      }
+    }
 
     const earPhotos = [];
     for (const key of ['turnA', 'turnB']) {
