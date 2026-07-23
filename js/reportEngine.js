@@ -65,12 +65,16 @@ export function buildReport(measurements) {
     text: [shapeData.desc],
   });
 
-  // 삼정
+  // 삼정 — 상정(이마) 위쪽 경계는 원래 헤어라인이어야 하지만, 얼굴 윤곽 랜드마크는 머리카락을
+  // 추적하지 않아 검출에 실패하면 그보다 아래(오벌 최상단)를 대신 쓴다. 그 경우에만 정직하게
+  // 안내를 덧붙인다(성공하면 기존 설명 그대로 사용).
   sections.push({
     id: 'samjeong',
     title: SAMJEONG_INFO.title,
     source: sourceTag(SAMJEONG_INFO.source),
-    description: SAMJEONG_INFO.description,
+    description: measurements.hairlineDetected
+      ? SAMJEONG_INFO.description
+      : `${SAMJEONG_INFO.description} 이번 분석에서는 헤어라인이 뚜렷이 검출되지 않아, 상정(이마) 구간은 얼굴 윤곽이 인식되는 범위 안에서만 근사했습니다.`,
     ratios: samjeong.ratios,
     regions: SAMJEONG_INFO.regions,
     text: [samjeong.text],

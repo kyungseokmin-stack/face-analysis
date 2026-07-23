@@ -111,10 +111,25 @@ function average(nums) {
 }
 
 /**
+ * 얼굴 중심 x좌표(0~1 정규화)만 필요할 때 쓰는 경량 헬퍼. 헤어라인 검출(hairEngine.js)은
+ * computeMeasurements를 부르기 전에 어느 x열을 스캔할지 알아야 하므로, 전체 계산을
+ * 거치지 않고 이 값만 뽑아 쓸 수 있게 별도로 노출한다.
+ */
+export function estimateCenterXRatio(landmarks, groups) {
+  const ovalIdx = indicesFromConnections(groups.faceOval);
+  const ovalBox = bbox(landmarks, ovalIdx);
+  if (!ovalBox.width) return null;
+  return ovalBox.minX + ovalBox.width / 2;
+}
+
+/**
  * 단일 포즈(랜드마크 1세트)로부터 1차 지표를 계산한다.
  * 실패 가능(랜드마크 누락)하므로 호출부에서 null 체크가 필요하다.
+ * @param {number|null} hairlineY - 헤어라인 y좌표(0~1 정규화, hairEngine.js가 검출). front
+ *   포즈에만 의미가 있으며, null이면(검출 실패 등) 기존 방식(윤곽 랜드마크 최상단)으로
+ *   되돌아간다.
  */
-function computeSinglePoseMetrics(landmarks, groups, pose) {
+function computeSinglePoseMetrics(landmarks, groups, pose, hairlineY) {
   if (!landmarks) return null;
 
   const ovalIdx = indicesFromConnections(groups.faceOval);
@@ -158,10 +173,20 @@ function computeSinglePoseMetrics(landmarks, groups, pose) {
   const noseBaseY = noseBox ? noseBox.maxY : eyeBottomY + faceHeight * 0.14;
 
   // --- 삼정(三停) ---
-  const upperH = clamp(browLineY - ovalBox.minY, 0, faceHeight);
-  const middleH = clamp(noseBaseY - browLineY, 0, faceHeight);
-  const lowerH = clamp(ovalBox.maxY - noseBaseY, 0, faceHeight);
-  const totalH = upperH + middleH + lowerH || faceHeight;
+  // 상정(이마)의 위쪽 경계는 원래 얼굴 윤곽 랜드마크(FACE_OVAL)의 최상단(ovalBox.minY)을
+  // 썼는데, MediaPipe는 머리카락을 추적하지 않아 이 지점이 실제 헤어라인(발제髮際)보다
+  // 한참 아래(이마 중하단부)에서 끊긴다 — 상정 정의("발제~인당")와 실제 측정이 어긋나는
+  // 문제였다. hairEngine.js가 헤어라인을 검출하면 그 값을 쓰고, 실패하면(hairlineY가
+  // null이거나 오벌 최상단보다 아래처럼 말이 안 되면) 기존 방식으로 되돌아간다.
+  const foreheadTopY = (hairlineY != null && hairlineY < ovalBox.minY) ? hairlineY : ovalBox.minY;
+  // 헤어라인 보정으로 상정 구간이 원래의 faceHeight(오벌 기준)보다 커질 수 있으므로,
+  // 삼정 세 구간만을 위한 전체 높이를 별도로 계산한다 — 다른 지표들이 쓰는 faceHeight/
+  // faceWidth(오벌 기준 스케일에 맞춰 보정값들이 조정돼 있음)는 그대로 둔다.
+  const samjeongTotalHeight = ovalBox.maxY - foreheadTopY;
+  const upperH = clamp(browLineY - foreheadTopY, 0, samjeongTotalHeight);
+  const middleH = clamp(noseBaseY - browLineY, 0, samjeongTotalHeight);
+  const lowerH = clamp(ovalBox.maxY - noseBaseY, 0, samjeongTotalHeight);
+  const totalH = upperH + middleH + lowerH || samjeongTotalHeight;
   const samjeongRatios = {
     upper: upperH / totalH,
     middle: middleH / totalH,
@@ -287,7 +312,9 @@ function computeSinglePoseMetrics(landmarks, groups, pose) {
   const eyeCentroid = centroid(landmarks, [...leftEyeIdx, ...rightEyeIdx]);
   const mouthCentroid = centroid(landmarks, lipsIdx);
   const anchors = {
-    forehead: { x: centerX, y: ovalBox.minY + faceHeight * 0.06 },
+    // 헤어라인이 검출됐으면(foreheadTopY < ovalBox.minY) 실제 이마 구간(헤어라인~눈썹선)의
+    // 40% 지점에, 아니면 기존처럼 오벌 최상단 바로 아래에 라벨을 놓는다.
+    forehead: { x: centerX, y: foreheadTopY + (browLineY - foreheadTopY) * 0.4 },
     eyebrow: eyebrowCentroid ? { x: eyebrowCentroid.x, y: eyebrowCentroid.y } : null,
     eye: eyeCentroid ? { x: eyeCentroid.x, y: eyeCentroid.y } : null,
     nose: noseBox ? { x: (noseBox.minX + noseBox.maxX) / 2, y: (noseBox.minY + noseBox.maxY) / 2 } : null,
@@ -303,7 +330,7 @@ function computeSinglePoseMetrics(landmarks, groups, pose) {
   const measurementLines = {
     faceOvalX: { minX: ovalBox.minX, maxX: ovalBox.maxX },
     samjeongLines: { browLineY, noseBaseY },
-    centerAxis: { x: centerX, topY: ovalBox.minY, bottomY: ovalBox.maxY },
+    centerAxis: { x: centerX, topY: foreheadTopY, bottomY: ovalBox.maxY },
     eyeSpan: leftEyeCenter && rightEyeCenter
       ? { minX: leftEyeBox.minX, maxX: rightEyeBox.maxX, y: (leftEyeBox.minY + rightEyeBox.minY) / 2 }
       : null,
@@ -338,18 +365,24 @@ function computeSinglePoseMetrics(landmarks, groups, pose) {
     foreheadWidthRatio: cheekBandWidth ? (foreheadBandWidth ?? 0) / cheekBandWidth : null,
     chinWidthRatio: cheekBandWidth ? (jawBandWidth ?? 0) / cheekBandWidth : null,
     cheekBalance,
+    hairlineDetected: foreheadTopY < ovalBox.minY,
   };
 }
 
 /**
  * @param {Record<string, {landmarks: any[]}>} capturedPoses - key: front|left|right|up|down
  * @param {object} groups - faceEngine.landmarkGroups
+ * @param {number|null} hairlineY - hairEngine.js가 정면 캡처에서 검출한 헤어라인 y좌표
+ *   (0~1 정규화). 검출 못 했으면 null(또는 생략) — 이 경우 기존 방식으로 동작한다.
  */
-export function computeMeasurements(capturedPoses, groups) {
+export function computeMeasurements(capturedPoses, groups, hairlineY = null) {
   const perPose = {};
   for (const [key, pose] of Object.entries(capturedPoses)) {
     if (pose?.landmarks) {
-      perPose[key] = computeSinglePoseMetrics(pose.landmarks, groups, pose.pose);
+      // 헤어라인은 정면 캡처 사진 한 장에서만 검출하므로(hairEngine.js), 다른 각도
+      // (turnA/turnB/tiltA/tiltB)는 그 시점의 랜드마크 좌표계가 서로 달라 정면에서 구한
+      // hairlineY를 그대로 대입할 수 없다. front에만 넘긴다.
+      perPose[key] = computeSinglePoseMetrics(pose.landmarks, groups, pose.pose, key === 'front' ? hairlineY : null);
     }
   }
 
@@ -358,17 +391,26 @@ export function computeMeasurements(capturedPoses, groups) {
     throw new Error('얼굴 랜드마크를 계산할 수 없습니다.');
   }
 
-  // 삼정 비율과 코 돌출도는 여러 각도(front/left/right/up/down)에서 각각 독립적으로 계산한 뒤
-  // 평균을 내어 단일 사진의 각도·조명에 따른 오차를 줄인다.
-  const samjeongRatios = {
-    upper: average(succeeded.map(([, v]) => v.samjeongRatios.upper)),
-    middle: average(succeeded.map(([, v]) => v.samjeongRatios.middle)),
-    lower: average(succeeded.map(([, v]) => v.samjeongRatios.lower)),
-  };
-  const sumRatio = samjeongRatios.upper + samjeongRatios.middle + samjeongRatios.lower;
-  samjeongRatios.upper /= sumRatio;
-  samjeongRatios.middle /= sumRatio;
-  samjeongRatios.lower /= sumRatio;
+  // 삼정 비율: 원래는 여러 각도에서 독립적으로 계산한 값을 평균해 오차를 줄였는데, 이는
+  // 모든 각도가 똑같이 부정확한(오벌 최상단을 이마로 오인하는) 방법을 썼을 때만 유효한
+  // 전략이다. 정면에서 헤어라인 검출에 성공하면, 그 값이 다른 각도의 부정확한 값보다
+  // 훨씬 근거가 확실하므로 평균에 섞지 않고 정면 값을 그대로 쓴다. 실패했을 때만 기존처럼
+  // 여러 각도를 평균한다.
+  const frontHairlineDetected = perPose.front?.hairlineDetected;
+  let samjeongRatios;
+  if (frontHairlineDetected) {
+    samjeongRatios = { ...perPose.front.samjeongRatios };
+  } else {
+    samjeongRatios = {
+      upper: average(succeeded.map(([, v]) => v.samjeongRatios.upper)),
+      middle: average(succeeded.map(([, v]) => v.samjeongRatios.middle)),
+      lower: average(succeeded.map(([, v]) => v.samjeongRatios.lower)),
+    };
+    const sumRatio = samjeongRatios.upper + samjeongRatios.middle + samjeongRatios.lower;
+    samjeongRatios.upper /= sumRatio;
+    samjeongRatios.middle /= sumRatio;
+    samjeongRatios.lower /= sumRatio;
+  }
 
   // 코 돌출도: 좌우 회전(turnA/turnB) 옆모습에서 계산한 값이 있으면 그쪽을 우선 사용한다.
   // 정면 사진의 z(깊이) 추정은 MediaPipe 특성상 오차가 커서, 실제로는 코가 낮아도 "매우
@@ -415,5 +457,6 @@ export function computeMeasurements(capturedPoses, groups) {
     foreheadWidthRatio: primary.foreheadWidthRatio,
     chinWidthRatio: primary.chinWidthRatio,
     cheekBalance: primary.cheekBalance,
+    hairlineDetected: Boolean(frontHairlineDetected),
   };
 }

@@ -34,6 +34,7 @@ face-analysis/
 ├── css/style.css
 └── js/
     ├── faceEngine.js        # MediaPipe FaceLandmarker 래퍼, 변환행렬→yaw/pitch/roll 계산
+    ├── hairEngine.js         # MediaPipe ImageSegmenter(hair_segmenter) 래퍼, 헤어라인 y좌표 검출
     ├── captureFlow.js        # 정면→좌우회전→상하기울임 5단계 가이드 촬영 상태머신
     ├── measurements.js       # 랜드마크 → 삼정/오악/오관/얼굴형 비율 계산
     ├── physiognomyKnowledge.js # 고전 문헌 기반 해석 규칙(데이터+로직, DOM 비의존)
@@ -267,6 +268,42 @@ python3 -m http.server 8080
 z 기반 값으로 대체한다. 옆선 위치·코 돌출 정도를 다르게 배치한 합성 랜드마크로 검증한 결과,
 낮은 코/보통 코/높은 코 순으로 0.31 → 0.57 → 0.996으로 값이 뚜렷하게 갈렸다(이전에는 같은
 검증에서 값이 항상 높은 쪽으로 쏠렸다).
+
+## 헤어라인 검출 — 이마(상정) 측정 기준을 오벌 최상단에서 실제 헤어라인으로
+
+인포그래픽 스크린샷을 본 실사용자로부터 "이마의 상단부분이 이마 중간에도 못 미치는 것
+같다"는 지적을 받았다. 원인은 `상정(이마)`의 위쪽 경계로 얼굴 윤곽 랜드마크(`FACE_OVAL`)의
+최상단(`ovalBox.minY`)을 써왔기 때문이다 — MediaPipe FaceLandmarker는 머리카락을 추적하지
+않으므로 이 지점은 실제 헤어라인(발제髮際)이 아니라 그보다 한참 아래(이마 중하단부)에서
+끊긴다. `physiognomyKnowledge.js`의 상정 정의("발제~인당")와 실제 측정이 어긋나 있었던
+셈이다.
+
+MediaPipe 자체에 헤어(머리카락) 세그멘테이션 모델이 있는지 먼저 찾아봤다 — 같은
+`@mediapipe/tasks-vision` 패키지 안에 `ImageSegmenter` 태스크와 `hair_segmenter` 모델이
+공식적으로 존재했다(`https://storage.googleapis.com/mediapipe-models/image_segmenter/hair_segmenter/float32/1/hair_segmenter.tflite`,
+`face_landmarker.task`와 같은 구글 공식 호스팅). 새 패키지 의존성 없이 기존 라이브러리에서
+클래스 하나만 더 가져오면 되므로 이를 우선 채택했다(`js/hairEngine.js`).
+
+- 정면 캡처 사진 한 장에만 1회 실행한다(매 프레임 X) — 촬영 흐름 속도에 영향 없음.
+- 카테고리 마스크에서 얼굴 중심 x열을 위→아래로 훑어 "머리카락 → 머리카락 아님"으로
+  바뀌는 첫 지점을 헤어라인으로 본다(`findHairlineRow`). 머리 위 여백을 헤어라인으로
+  오인하지 않도록, 먼저 "머리카락이 시작되는 지점"을 찾은 뒤에야 전환점을 인정한다.
+- `measurements.js`는 이 값을 `foreheadTopY`로 받아 상정 비율·인포그래픽 라벨(`anchors.forehead`)·
+  분석선(`centerAxis.topY`)에 반영한다. 검출값이 오벌 최상단보다 아래처럼 말이 안 되거나
+  아예 실패하면(대머리·모자·모델 로드 실패 등) 기존 방식으로 조용히 되돌아가고, 그 경우에만
+  삼정 섹션 설명에 "헤어라인이 뚜렷이 검출되지 않아 근사했다"는 안내를 덧붙인다
+  (`reportEngine.js`).
+- **이마 너비(`foreheadWidthRatio`)는 이 보정의 대상이 아니다** — 너비는 오벌 랜드마크의
+  실제 x좌표 점들을 훑어 재는데, 오벌 자체가 헤어라인보다 아래에서 끝나 그 위쪽엔 애초에
+  점이 없다. 헤어라인 y좌표 하나만으로는 그 위쪽의 폭을 알 수 없어, 너비는 여전히 기존
+  방식(보이는 윤곽 범위 안에서의 근사)을 쓴다.
+- 카테고리 인덱스(1=머리카락으로 가정)는 공식 문서를 이 세션에서 직접 열람하지 못한 채
+  커뮤니티 자료를 근거로 확정했다 — 실제 배포 환경에서 검증이 필요하다. 실제 모델 추론도
+  이 개발 환경에서는 CDN 네트워크 접근이 막혀 있어 검증하지 못했다(`js/faceEngine.js`의
+  FaceLandmarker와 같은 제약). 마스크를 스캔해 헤어라인 행을 찾는 순수 로직
+  (`findHairlineRow`)만 합성 마스크로 여러 시나리오(정상 전환, 머리 위 여백 없음, 대머리,
+  잡음 1픽셀, 헤어라인 없음)를 직접 검증했고, 실제 모델의 정확도는 사용자가 실제 서비스에서
+  확인해야 한다.
 
 ## 알려진 한계
 

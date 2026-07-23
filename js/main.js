@@ -2,8 +2,9 @@
 // 어떤 얼굴 이미지·영상·랜드마크 데이터도 네트워크로 전송하지 않는다. (콘솔에서 Network 탭으로 직접 확인 가능)
 
 import { FaceEngine } from './faceEngine.js';
+import { HairEngine } from './hairEngine.js';
 import { CaptureFlow } from './captureFlow.js';
-import { computeMeasurements } from './measurements.js';
+import { computeMeasurements, estimateCenterXRatio } from './measurements.js';
 import { buildReport } from './reportEngine.js';
 import { buildInfographic, downloadCanvas } from './infographic.js';
 import { initAudio, playStepDing, playAllDone } from './sound.js';
@@ -28,7 +29,17 @@ function showScreen(name) {
 
 let mediaStream = null;
 let faceEngine = null;
+let hairEngine = null;
 let captureFlow = null;
+
+function loadImage(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('이미지를 불러오지 못했습니다.'));
+    img.src = dataUrl;
+  });
+}
 
 // .app-header는 제목+부제목이 뷰포트 폭에 따라 줄바꿈 방식이 달라져 실제 렌더 높이가
 // ~93~110px 사이로 유동적이다. #report-nav가 스티키로 고정될 때 이 헤더 아래(그리고
@@ -300,7 +311,28 @@ async function runAnalysis(capturedPoses) {
   try {
     await new Promise((resolve) => setTimeout(resolve, 300)); // 짧은 전환 여유
     const groups = faceEngine.landmarkGroups;
-    const measurements = computeMeasurements(capturedPoses, groups);
+
+    // 헤어라인(이마 시작선) 검출 — 정면 캡처 사진 한 장에만 1회 실행한다("우리는 이마의
+    // 넓고 좁음을 판단하는 기준이 이상하다"는 지적: 얼굴 윤곽 랜드마크는 머리카락을
+    // 추적하지 않아 헤어라인보다 한참 아래에서 끊긴다). 모델 로드·추론에 실패해도(구형
+    // 브라우저, 네트워크 문제 등) 전체 분석이 멈추지 않도록 실패를 여기서 흡수하고,
+    // hairlineY는 null로 두어 measurements.js가 기존 방식(윤곽 최상단)으로 되돌아가게 한다.
+    let hairlineY = null;
+    if (capturedPoses.front?.photoDataUrl && capturedPoses.front?.landmarks) {
+      try {
+        const centerXRatio = estimateCenterXRatio(capturedPoses.front.landmarks, groups);
+        if (centerXRatio != null) {
+          hairEngine = hairEngine ?? new HairEngine();
+          await hairEngine.init();
+          const frontImg = await loadImage(capturedPoses.front.photoDataUrl);
+          hairlineY = hairEngine.detectHairlineY(frontImg, centerXRatio);
+        }
+      } catch (err) {
+        console.error('hairline detection failed', err);
+      }
+    }
+
+    const measurements = computeMeasurements(capturedPoses, groups, hairlineY);
     const report = buildReport(measurements);
 
     const earPhotos = [];
