@@ -242,68 +242,97 @@ h3 { font-size: var(--text-md); margin: 0 0 var(--space-2); }
   line-height: 1.65;
 }
 
-/* 벤토(bento) 그리드: 첫 항목(문헌 근거)은 넓게, 나머지 둘은 정사각형 타일로 나란히 —
-   가로로 늘어선 목록이 아니라 크기 차이가 있는 타일 구성으로 한눈에 훑어보게 한다. */
+/* 첫 화면 히어로 — 원형 엠블럼 + 헤드라인 + 신뢰 배지를 가운데 정렬로 묶어, 리포트
+   화면의 색상 카드와는 대비되는 차분한 도입부로 삼는다. */
+.intro-hero {
+  text-align: center;
+  padding: var(--space-2) 0 var(--space-3);
+}
+
+.intro-emblem {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto var(--space-4);
+  border-radius: var(--radius-full);
+  background: radial-gradient(circle at 35% 30%, #cf9c6d, var(--accent) 70%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 16px rgba(156, 74, 38, 0.35);
+}
+.intro-emblem span {
+  font-family: var(--font-serif);
+  font-size: 28px;
+  color: #fff;
+}
+
+.intro-hero h1 {
+  font-size: 1.4rem;
+  line-height: 1.4;
+}
+
+.intro-hero .lead {
+  margin: 0 0 var(--space-4);
+}
+
+.intro-badges {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-2);
+}
+
+.intro-badge {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  padding: 6px var(--space-3);
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+}
+
 .feature-list {
   list-style: none;
   padding: 0;
-  margin: 0 0 var(--space-5);
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  margin: var(--space-5) 0;
+  display: flex;
+  flex-direction: column;
   gap: var(--space-3);
   font-size: var(--text-base);
 }
 
 .feature-list li {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--space-3);
   background: var(--surface-alt);
   border-radius: var(--radius-md);
   padding: var(--space-3) var(--space-4);
-  /* .report-card와 같은 이유 — [data-theme]가 --text를 밝게 덮어써도 .feature-text가
-     그 상속을 실제로 받으려면 이 지점에서 color: var(--text)로 다시 계산돼야 한다. */
   color: var(--text);
-}
-
-.feature-list li:first-child {
-  grid-column: 1 / -1;
-}
-
-.feature-list li:not(:first-child) {
-  grid-column: span 1;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: var(--space-2);
-  padding: var(--space-4) var(--space-3);
 }
 
 .feature-icon {
   flex: none;
-  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-full);
+  display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  font-size: 15px;
-  line-height: 1;
+  font-size: 17px;
+  color: #fff;
 }
+/* 리포트 카드 색상 팔레트(reportCardText.js의 THEME_COLORS)에서 세 색만 가져와 작은
+   아이콘 원에 입힌다 — 전면 배경색까지는 아니어도 리포트 화면과 색으로 은은하게 이어진다. */
+.feature-icon-1 { background: var(--accent); }
+.feature-icon-2 { background: #55603f; }
+.feature-icon-3 { background: #3f5060; }
 
-.feature-list li:not(:first-child) .feature-icon {
-  width: 44px;
-  height: 44px;
-  font-size: 22px;
-  background: var(--accent-soft);
-  border-radius: var(--radius-full);
-}
-
-.feature-text { flex: 1; }
-
-.feature-list li:not(:first-child) .feature-text {
-  flex: none;
+.feature-text {
   font-size: var(--text-sm);
-  color: var(--text-muted);
+  line-height: 1.5;
 }
 
 .consent-list {
@@ -804,11 +833,8 @@ h3 { font-size: var(--text-md); margin: 0 0 var(--space-2); }
    이미지 반영). 라이트/다크 모드와 무관하게 고정된 색으로, 배지·헤드라인·밑줄 등 하위
    요소가 이미 --text/--accent 계열 커스텀 프로퍼티를 쓰고 있어 여기서 그 값만 밝은 색으로
    덮어쓰면 하위 요소들이 자동으로 배경과 대비되는 색을 쓴다(개별 선택자를 따로 만들 필요가
-   없다). --danger(밑줄색)는 다크 배경 위에서도 잘 보이도록 밝은 산호색 계열로 통일했다.
-   같은 색상 규칙을 첫 화면의 특징 타일(.feature-list li)에도 적용해, 첫 화면과 리포트
-   화면이 같은 카드 디자인 언어를 쓰도록 맞췄다. */
-.report-card[data-theme],
-.feature-list li[data-theme] {
+   없다). --danger(밑줄색)는 다크 배경 위에서도 잘 보이도록 밝은 산호색 계열로 통일했다. */
+.report-card[data-theme] {
   border: none;
   --text: #fbf6ef;
   --text-muted: rgba(251, 246, 239, 0.78);
@@ -818,17 +844,17 @@ h3 { font-size: var(--text-md); margin: 0 0 var(--space-2); }
   --border: rgba(251, 246, 239, 0.28);
   --danger: #ff9d85;
 }
-.report-card[data-theme="ink"], .feature-list li[data-theme="ink"] { background: #2f3b52; }
-.report-card[data-theme="ember"], .feature-list li[data-theme="ember"] { background: #7c3a1c; }
-.report-card[data-theme="clay"], .feature-list li[data-theme="clay"] { background: #8a4a42; }
-.report-card[data-theme="moss"], .feature-list li[data-theme="moss"] { background: #55603f; }
-.report-card[data-theme="slate"], .feature-list li[data-theme="slate"] { background: #3f5060; }
-.report-card[data-theme="ochre"], .feature-list li[data-theme="ochre"] { background: #7c5f2b; }
-.report-card[data-theme="plum"], .feature-list li[data-theme="plum"] { background: #5a3552; }
-.report-card[data-theme="brick"], .feature-list li[data-theme="brick"] { background: #8c4a2f; }
-.report-card[data-theme="pine"], .feature-list li[data-theme="pine"] { background: #2f6b5e; }
-.report-card[data-theme="taupe"], .feature-list li[data-theme="taupe"] { background: #6b5642; }
-.report-card[data-theme="charcoal"], .feature-list li[data-theme="charcoal"] { background: #3a3530; }
+.report-card[data-theme="ink"] { background: #2f3b52; }
+.report-card[data-theme="ember"] { background: #7c3a1c; }
+.report-card[data-theme="clay"] { background: #8a4a42; }
+.report-card[data-theme="moss"] { background: #55603f; }
+.report-card[data-theme="slate"] { background: #3f5060; }
+.report-card[data-theme="ochre"] { background: #7c5f2b; }
+.report-card[data-theme="plum"] { background: #5a3552; }
+.report-card[data-theme="brick"] { background: #8c4a2f; }
+.report-card[data-theme="pine"] { background: #2f6b5e; }
+.report-card[data-theme="taupe"] { background: #6b5642; }
+.report-card[data-theme="charcoal"] { background: #3a3530; }
 
 .report-card-header {
   display: flex;
