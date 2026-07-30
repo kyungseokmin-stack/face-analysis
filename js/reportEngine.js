@@ -19,6 +19,7 @@ import {
   interpretSibigung,
   classifyFaceShape,
   summarizeSynthesis,
+  samjeongAgeSuffix,
   buildKeyMetrics,
   EAR_NOTE,
   EAR_CHECKLIST,
@@ -30,13 +31,42 @@ function sourceTag(key) {
   return s ? { short: s.short, full: s.full, note: s.note } : null;
 }
 
-export function buildReport(measurements) {
+// 관심 분야(선택) 별로 십이궁 중 가장 관련 깊은 궁만 골라 종합 총평 바로 아래에 다시
+// 보여주기 위한 매핑. 새 해석 문장을 짓지 않고, 이미 계산된 십이궁 문구를 그대로 재사용한다.
+const INTEREST_LABELS = {
+  wealth: '재물운',
+  career: '직업·명예운',
+  relationship: '애정·인간관계',
+};
+const INTEREST_GUNG_KEYS = {
+  wealth: ['jaebaek', 'jeontaek'],
+  career: ['gwallok', 'myeong'],
+  relationship: ['bubu', 'hyeongje'],
+};
+
+export function buildReport(measurements, userContext = {}) {
   const sections = [];
 
-  // 얼굴형/삼정은 종합 총평에서도 쓰이므로 먼저 계산해 둔다 (section push는 아래에서).
+  // 얼굴형/삼정/십이궁은 종합 총평·관심 분야 하이라이트에서도 쓰이므로 먼저 계산해 둔다
+  // (section push는 아래에서).
   const shapeKey = classifyFaceShape(measurements);
   const shapeData = FACE_SHAPE_INFO.shapes[shapeKey];
   const samjeong = interpretSamjeong(measurements.samjeongRatios);
+  const ageSuffix = !samjeong.balanced ? samjeongAgeSuffix(samjeong.dominantKey, userContext.ageBracket) : '';
+
+  const sibigungNotes = interpretSibigung(
+    {
+      eyeSpacingRatio: measurements.eyeSpacingRatio ?? 1,
+      foreheadWidthRatio: measurements.foreheadWidthRatio ?? 0.9,
+      noseWidthToFaceRatio: measurements.noseWidthToFaceRatio ?? 0.2,
+      eyebrowLengthToEyeRatio: measurements.eyebrowLengthToEyeRatio ?? 1,
+      cheekBalance: measurements.cheekBalance,
+      chinWidthRatio: measurements.chinWidthRatio ?? 0.8,
+      eyelidGapRatio: measurements.eyelidGapRatio ?? 0.4,
+      nasionProminence: measurements.nasionProminence,
+    },
+    userContext.maritalStatus
+  );
 
   // 종합 총평 — 리포트 맨 위에 배치해 먼저 결론부터 보여준다. 아래 각 section이
   // 이미 문장으로 풀어낸 해석을 그대로 복사하지 않고, 같은 측정치의 tier 정보에서
@@ -54,6 +84,25 @@ export function buildReport(measurements) {
       samjeongDominantDirection: samjeong.dominantDirection,
     }),
   });
+
+  // 관심 분야(선택) 하이라이트 — 종합 총평 바로 아래, 사용자가 고른 분야와 가장 관련 깊은
+  // 십이궁 항목만 모아 다시 보여준다. 새 해석 문장이 아니라 아래 십이궁 section에도 그대로
+  // 나오는 문구를 재사용하므로, 관심 분야를 고르지 않았거나("전체") 관련 궁 값이 하나도
+  // 없으면(예: 옆모습 미캡처로 부부궁 없음) section 자체를 추가하지 않는다.
+  const interestArea = userContext.interestArea;
+  if (interestArea && INTEREST_GUNG_KEYS[interestArea]) {
+    const keys = INTEREST_GUNG_KEYS[interestArea];
+    const picked = sibigungNotes.filter((n) => keys.includes(n.gung));
+    if (picked.length) {
+      sections.push({
+        id: 'interest-highlight',
+        title: `관심 분야 — ${INTEREST_LABELS[interestArea]}`,
+        source: null,
+        description: '선택하신 관심 분야와 가장 관련 깊은 항목만 모아 먼저 보여드려요. 같은 내용이 아래 해당 섹션에도 들어 있어요.',
+        text: picked.map((n) => `${SIBIGUNG_INFO.gungs[n.gung].label} (${SIBIGUNG_INFO.gungs[n.gung].region}) — ${n.text}`),
+      });
+    }
+  }
 
   // 얼굴형
   sections.push({
@@ -77,7 +126,7 @@ export function buildReport(measurements) {
       : `${SAMJEONG_INFO.description} 이번 분석에서는 헤어라인이 뚜렷이 검출되지 않아, 상정(이마) 구간은 얼굴 윤곽이 인식되는 범위 안에서만 근사했습니다.`,
     ratios: samjeong.ratios,
     regions: SAMJEONG_INFO.regions,
-    text: [samjeong.text],
+    text: [samjeong.text + ageSuffix],
   });
 
   // 오악
@@ -158,17 +207,7 @@ export function buildReport(measurements) {
     showEarPhotos: true,
   });
 
-  // 십이궁 주요 8궁
-  const sibigungNotes = interpretSibigung({
-    eyeSpacingRatio: measurements.eyeSpacingRatio ?? 1,
-    foreheadWidthRatio: measurements.foreheadWidthRatio ?? 0.9,
-    noseWidthToFaceRatio: measurements.noseWidthToFaceRatio ?? 0.2,
-    eyebrowLengthToEyeRatio: measurements.eyebrowLengthToEyeRatio ?? 1,
-    cheekBalance: measurements.cheekBalance,
-    chinWidthRatio: measurements.chinWidthRatio ?? 0.8,
-    eyelidGapRatio: measurements.eyelidGapRatio ?? 0.4,
-    nasionProminence: measurements.nasionProminence,
-  });
+  // 십이궁 주요 8궁 (sibigungNotes는 관심 분야 하이라이트에서도 쓰느라 위에서 이미 계산해 두었다)
   if (sibigungNotes.length) {
     sections.push({
       id: 'sibigung',

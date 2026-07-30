@@ -96,12 +96,25 @@ document.getElementById('link-privacy-intro').addEventListener('click', (e) => {
 // --- consent ---
 const consentCheckbox = document.getElementById('consent-checkbox');
 const btnConsentContinue = document.getElementById('btn-consent-continue');
+const selectAgeBracket = document.getElementById('select-age-bracket');
+const selectMaritalStatus = document.getElementById('select-marital-status');
+const selectInterestArea = document.getElementById('select-interest-area');
 consentCheckbox.addEventListener('change', () => {
   btnConsentContinue.disabled = !consentCheckbox.checked;
 });
 
+// 연령대/혼인 여부/관심 분야는 전부 선택 사항이다 — 얼굴만으로는 연령·결혼 여부를 구분할
+// 수 없어 해설이 누구에게나 비슷해지는 문제를, 촬영 전 짧은 질문으로 보완한다. 값은
+// 촬영 시작 시점(사용자가 "카메라 시작"을 누른 순간)에 한 번만 읽어 리포트 생성까지 들고 간다.
+let userContext = { ageBracket: '', maritalStatus: '', interestArea: 'all' };
+
 btnConsentContinue.addEventListener('click', async () => {
   initAudio(); // 사용자 제스처 안에서 호출해야 이후 알림음 재생이 허용된다
+  userContext = {
+    ageBracket: selectAgeBracket.value,
+    maritalStatus: selectMaritalStatus.value,
+    interestArea: selectInterestArea.value,
+  };
   showScreen('capture');
   await beginCaptureSession();
 });
@@ -338,7 +351,7 @@ async function runAnalysis(capturedPoses) {
     }
 
     const measurements = computeMeasurements(capturedPoses, groups, hairlineY);
-    const report = buildReport(measurements);
+    const report = buildReport(measurements, userContext);
 
     // 모바일에서는 개발자도구를 열기 번거로우므로, 헤어라인 검출이 실패한 원인(예외든,
     // 예외 없이 그냥 못 찾은 경우든)을 리포트 화면에서 바로 확인할 수 있도록 삼정 섹션

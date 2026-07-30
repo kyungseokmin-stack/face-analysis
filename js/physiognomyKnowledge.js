@@ -116,9 +116,10 @@ export function interpretSamjeong(ratios) {
   const maxKey = Object.keys(dev).reduce((a, b) => (Math.abs(dev[a]) > Math.abs(dev[b]) ? a : b));
   const direction = dev[maxKey] >= 0 ? 'developed' : 'compressed';
   const spread = Math.max(upper, middle, lower) - Math.min(upper, middle, lower);
+  const balanced = spread < SAMJEONG_BALANCE_THRESHOLD;
 
   let balanceText;
-  if (spread < SAMJEONG_BALANCE_THRESHOLD) {
+  if (balanced) {
     balanceText = '상정·중정·하정 세 구간의 비율이 매우 고르게 균형을 이루고 있습니다. 고전에서 말하는 "삼정이 균등하면 일생이 평탄하다"는 전형에 가깝습니다.';
   } else {
     const intensity = spread < 0.06 ? '약간' : '뚜렷하게';
@@ -128,10 +129,34 @@ export function interpretSamjeong(ratios) {
   return {
     ratios,
     spread,
+    balanced,
     dominantKey: maxKey,
     dominantDirection: direction,
     text: balanceText,
   };
+}
+
+// 삼정 각 구간이 대응하는 인생 시기(상정=초년 15~30세, 중정=중년 31~50세, 하정=말년 51세~)가
+// 사용자가 선택한 연령대 기준으로 이미 지났는지(past)/지금인지(present)/아직인지(future)를
+// 판단해, 균형이 무너진(dominant) 구간의 해설 뒤에 짧게 덧붙일 문구를 고른다. 연령대를
+// 선택하지 않았거나(ageBracket 없음) 삼정이 균형 잡힌 경우(dominant 구간이 없음)에는
+// 적용하지 않는다.
+const SAMJEONG_STAGE_INDEX = { upper: 0, middle: 1, lower: 2 };
+const SAMJEONG_AGE_INDEX = { young: 0, mid: 1, senior: 2 };
+
+const SAMJEONG_STAGE_SUFFIX = {
+  past: ' 이미 지나온 시기에 해당하는 해석이니, 참고 삼아 돌아보면 좋아요.',
+  present: ' 지금이 바로 이 시기에 해당하는 해석이에요.',
+  future: ' 앞으로 다가올 시기에 대한 해석이니 미리 참고해두면 좋아요.',
+};
+
+export function samjeongAgeSuffix(dominantKey, ageBracket) {
+  if (!ageBracket) return '';
+  const stageIndex = SAMJEONG_STAGE_INDEX[dominantKey];
+  const ageIndex = SAMJEONG_AGE_INDEX[ageBracket];
+  if (stageIndex == null || ageIndex == null) return '';
+  const relation = stageIndex === ageIndex ? 'present' : stageIndex < ageIndex ? 'past' : 'future';
+  return SAMJEONG_STAGE_SUFFIX[relation];
 }
 
 // ---------------------------------------------------------------------------
@@ -565,6 +590,26 @@ const HYEONGJE_TEXT = {
   high: '형제궁(눈썹)이 길게 발달하여, 전통적으로 형제·동료 복이 두터운 상으로 풀이합니다.',
 };
 
+// 부부궁 문구 — 혼인 여부에 따라 "앞으로 만날 인연"(미혼) vs "현재 배우자"(기혼)로 프레임이
+// 달라지므로, 선택하지 않은 경우(unspecified)를 포함해 3갈래 × 균형여부 2갈래로 둔다.
+const BUBU_TEXT = {
+  unspecified: {
+    balanced: '부부궁(눈꼬리 옆 간문)이 좌우 균형을 이루어, 전통적으로 배우자와의 관계가 안정적인 상으로 풀이합니다.',
+    unbalanced:
+      '부부궁(눈꼬리 옆 간문) 부근에 약간의 좌우 비대칭이 보여, 전통적으로 배우자운은 시기에 따라 기복이 있을 수 있는 상으로 풀이하나 큰 의미를 두지 않는 경우가 많습니다.',
+  },
+  unmarried: {
+    balanced: '부부궁(눈꼬리 옆 간문)이 좌우 균형을 이루어, 전통적으로 앞으로 만날 인연과의 관계가 안정적으로 흘러갈 상으로 풀이합니다.',
+    unbalanced:
+      '부부궁(눈꼬리 옆 간문) 부근에 약간의 좌우 비대칭이 보여, 전통적으로 앞으로의 인연에 시기별 기복이 있을 수 있는 상으로 풀이하나 큰 의미를 두지 않는 경우가 많습니다.',
+  },
+  married: {
+    balanced: '부부궁(눈꼬리 옆 간문)이 좌우 균형을 이루어, 전통적으로 현재 배우자와의 관계가 안정적인 상으로 풀이합니다.',
+    unbalanced:
+      '부부궁(눈꼬리 옆 간문) 부근에 약간의 좌우 비대칭이 보여, 전통적으로 현재 배우자와의 관계에 시기별 기복이 있을 수 있는 상으로 풀이하나 큰 의미를 두지 않는 경우가 많습니다.',
+  },
+};
+
 // ---------------------------------------------------------------------------
 // 질액궁(疾厄宮, 산근山根) 관련 메모 — 우선순위 검토 후 이번에는 구현하지 않기로 했다.
 //
@@ -589,7 +634,7 @@ const HYEONGJE_TEXT = {
 //    보류한다. 인덱스 확인 또는 실사용자 캡처 검증이 가능해지면 재검토할 것.
 // ---------------------------------------------------------------------------
 
-export function interpretSibigung(measurements) {
+export function interpretSibigung(measurements, maritalStatus) {
   const notes = [];
   notes.push({
     gung: 'myeong',
@@ -613,11 +658,10 @@ export function interpretSibigung(measurements) {
 
   if (measurements.cheekBalance != null) {
     const balanced = Math.abs(measurements.cheekBalance) < 0.02;
+    const maritalKey = maritalStatus === 'married' || maritalStatus === 'unmarried' ? maritalStatus : 'unspecified';
     notes.push({
       gung: 'bubu',
-      text: balanced
-        ? '부부궁(눈꼬리 옆 간문)이 좌우 균형을 이루어, 전통적으로 배우자와의 관계가 안정적인 상으로 풀이합니다.'
-        : '부부궁(눈꼬리 옆 간문) 부근에 약간의 좌우 비대칭이 보여, 전통적으로 배우자운은 시기에 따라 기복이 있을 수 있는 상으로 풀이하나 큰 의미를 두지 않는 경우가 많습니다.',
+      text: BUBU_TEXT[maritalKey][balanced ? 'balanced' : 'unbalanced'],
     });
   }
 
