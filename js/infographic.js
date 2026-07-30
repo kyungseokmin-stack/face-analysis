@@ -5,6 +5,8 @@
 // 이 사진은 촬영 중에만 브라우저 메모리에 있다가, 사용자가 "다운로드"를 누를 때만 사용자
 // 자신의 기기에 저장된다 — 서버로 전송되지 않는다.
 
+import { SECTION_THEMES, THEME_COLORS, deriveCardHeadline } from './reportCardText.js';
+
 // css/style.css :root의 라이트 테마 값과 맞춘다(캔버스는 CSS 커스텀 프로퍼티를 읽을 수 없어
 // 값을 그대로 복제해 둔다) — 값이 바뀌면 이 팔레트도 함께 갱신해야 한다.
 const PALETTE = {
@@ -15,6 +17,11 @@ const PALETTE = {
   line: '#dba57f',
   divider: '#e8e0d3',
 };
+
+// 카드 배경(THEME_COLORS)이 전부 짙은 색이라, 그 위에 놓이는 텍스트는 웹 리포트 카드와
+// 마찬가지로 밝은 색을 쓴다(css/style.css의 .report-card[data-theme] 오버라이드와 대응).
+const CARD_TEXT = '#fbf6ef';
+const CARD_TEXT_MUTED = 'rgba(251, 246, 239, 0.8)';
 
 const CREDIT_TEXT = 'ⓒ 2026 kenmin';
 
@@ -79,53 +86,116 @@ function wrapText(ctx, text, maxWidth) {
   return lines;
 }
 
+function roundRectPath(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
 /**
- * 리포트 섹션들을 본문 텍스트 블록으로 미리 레이아웃한다(실제 캔버스 크기를 정하기 전
- * 필요한 높이를 알아야 하므로, 임시 컨텍스트로 먼저 측정한다).
+ * 리포트 섹션들을 웹 화면과 같은 "주제별 색상 카드" 블록으로 미리 레이아웃한다(실제
+ * 캔버스 크기를 정하기 전 필요한 높이를 알아야 하므로, 임시 컨텍스트로 먼저 측정한다).
+ * 다운로드 이미지는 인터랙션이 없어 "더 보기"로 펼칠 수 없으므로, 웹 화면의 접힌 상태
+ * (헤드라인+요약)를 그대로 보여준다 — 단, 종합 총평(deriveCardHeadline이 null 반환)은
+ * 웹에서도 항상 펼쳐서 보여주는 카드이므로 여기서도 전체 문장을 그대로 다 보여준다.
  */
 function layoutSections(measureCtx, sections, maxWidth, sizes) {
+  const innerWidth = maxWidth - sizes.cardPadding * 2;
   const blocks = [];
   let y = 0;
   for (const section of sections) {
-    measureCtx.font = `bold ${sizes.titleSize}px sans-serif`;
-    const titleText = section.source ? `${section.title} · ${section.source.short}` : section.title;
-    const titleLines = wrapText(measureCtx, titleText, maxWidth);
+    const headlineData = deriveCardHeadline(section);
 
-    measureCtx.font = `${sizes.bodySize}px sans-serif`;
-    // reportEngine.js가 십이궁류 항목에서 헤더/본문 구분자로 넘기는 '\n'은 캔버스 텍스트에서는
-    // 줄바꿈으로 처리되지 않으므로(fillText는 개행을 인식하지 않는다), 흐르는 한 문단으로
-    // 합치기 전에 공백으로 바꿔 없앤다.
-    const bodyText = section.text.join(' ').replace(/\n/g, ' ');
-    const bodyLines = wrapText(measureCtx, bodyText, maxWidth);
+    measureCtx.font = `600 ${sizes.eyebrowSize}px sans-serif`;
+    const eyebrowText = section.source ? `${section.title} · ${section.source.short}` : section.title;
+    const eyebrowLines = wrapText(measureCtx, eyebrowText, innerWidth);
+
+    let headlineLines = [];
+    let summaryLines = [];
+    let bodyLines = [];
+    if (headlineData) {
+      measureCtx.font = `bold ${sizes.headlineSize}px sans-serif`;
+      headlineLines = wrapText(measureCtx, headlineData.headline, innerWidth);
+      if (headlineData.summary) {
+        measureCtx.font = `${sizes.summarySize}px sans-serif`;
+        summaryLines = wrapText(measureCtx, headlineData.summary, innerWidth).slice(0, 3);
+      }
+    } else {
+      // 종합 총평 — '\n'(십이궁류 헤더 구분자)은 이 카드에는 나오지 않지만 만약을 대비해 제거.
+      measureCtx.font = `${sizes.summarySize}px sans-serif`;
+      bodyLines = wrapText(measureCtx, section.text.join(' ').replace(/\n/g, ' '), innerWidth);
+    }
 
     const blockHeight =
-      titleLines.length * sizes.titleLineHeight + bodyLines.length * sizes.bodyLineHeight + sizes.sectionGap;
-    blocks.push({ titleLines, bodyLines, y });
-    y += blockHeight;
+      sizes.cardPadding * 2 +
+      eyebrowLines.length * sizes.eyebrowLineHeight +
+      sizes.headlineGap +
+      headlineLines.length * sizes.headlineLineHeight +
+      (summaryLines.length ? sizes.summaryGap + summaryLines.length * sizes.summaryLineHeight : 0) +
+      (bodyLines.length ? sizes.summaryGap + bodyLines.length * sizes.summaryLineHeight : 0);
+
+    blocks.push({ section, eyebrowLines, headlineLines, summaryLines, bodyLines, y, height: blockHeight });
+    y += blockHeight + sizes.sectionGap;
   }
-  return { blocks, totalHeight: y };
+  return { blocks, totalHeight: blocks.length ? y - sizes.sectionGap : 0 };
 }
 
-function drawSections(ctx, blocks, x, startY, sizes) {
-  blocks.forEach((block, i) => {
-    let y = startY + block.y;
+function drawSections(ctx, blocks, x, startY, maxWidth, sizes) {
+  for (const block of blocks) {
+    const theme = SECTION_THEMES[block.section.id];
+    const cardY = startY + block.y;
+
+    ctx.fillStyle = theme ? THEME_COLORS[theme] : PALETTE.divider;
+    roundRectPath(ctx, x, cardY, maxWidth, block.height, sizes.cardRadius);
+    ctx.fill();
+
+    const textColor = theme ? CARD_TEXT : PALETTE.text;
+    const mutedColor = theme ? CARD_TEXT_MUTED : PALETTE.muted;
+    const textX = x + sizes.cardPadding;
+    let ty = cardY + sizes.cardPadding + sizes.eyebrowSize;
+
     ctx.textAlign = 'left';
     ctx.textBaseline = 'alphabetic';
 
-    ctx.fillStyle = PALETTE.accent;
-    ctx.font = `bold ${sizes.titleSize}px sans-serif`;
-    for (const line of block.titleLines) {
-      ctx.fillText(line, x, y);
-      y += sizes.titleLineHeight;
+    ctx.fillStyle = mutedColor;
+    ctx.font = `600 ${sizes.eyebrowSize}px sans-serif`;
+    for (const line of block.eyebrowLines) {
+      ctx.fillText(line, textX, ty);
+      ty += sizes.eyebrowLineHeight;
     }
 
-    ctx.fillStyle = PALETTE.text;
-    ctx.font = `${sizes.bodySize}px sans-serif`;
-    for (const line of block.bodyLines) {
-      ctx.fillText(line, x, y);
-      y += sizes.bodyLineHeight;
+    ty += sizes.headlineGap;
+    ctx.fillStyle = textColor;
+    ctx.font = `bold ${sizes.headlineSize}px sans-serif`;
+    for (const line of block.headlineLines) {
+      ctx.fillText(line, textX, ty);
+      ty += sizes.headlineLineHeight;
     }
-  });
+
+    if (block.summaryLines.length) {
+      ty += sizes.summaryGap;
+      ctx.fillStyle = mutedColor;
+      ctx.font = `${sizes.summarySize}px sans-serif`;
+      for (const line of block.summaryLines) {
+        ctx.fillText(line, textX, ty);
+        ty += sizes.summaryLineHeight;
+      }
+    }
+
+    if (block.bodyLines.length) {
+      ty += sizes.summaryGap;
+      ctx.fillStyle = textColor;
+      ctx.font = `${sizes.summarySize}px sans-serif`;
+      for (const line of block.bodyLines) {
+        ctx.fillText(line, textX, ty);
+        ty += sizes.summaryLineHeight;
+      }
+    }
+  }
 }
 
 /**
@@ -146,11 +216,17 @@ export async function buildInfographic({ photoDataUrl, landmarks, groups, anchor
   const textMaxWidth = canvasWidth - contentPadding * 2;
 
   const sizes = {
-    titleSize: Math.round(photoW * 0.052),
-    bodySize: Math.round(photoW * 0.044),
-    titleLineHeight: Math.round(photoW * 0.075),
-    bodyLineHeight: Math.round(photoW * 0.062),
-    sectionGap: Math.round(photoW * 0.05),
+    cardPadding: Math.round(photoW * 0.045),
+    cardRadius: Math.round(photoW * 0.035),
+    eyebrowSize: Math.round(photoW * 0.032),
+    eyebrowLineHeight: Math.round(photoW * 0.048),
+    headlineGap: Math.round(photoW * 0.02),
+    headlineSize: Math.round(photoW * 0.052),
+    headlineLineHeight: Math.round(photoW * 0.075),
+    summaryGap: Math.round(photoW * 0.02),
+    summarySize: Math.round(photoW * 0.042),
+    summaryLineHeight: Math.round(photoW * 0.06),
+    sectionGap: Math.round(photoW * 0.045),
   };
 
   // 1차: 임시 컨텍스트로 본문 레이아웃을 미리 계산해 필요한 전체 높이를 구한다.
@@ -243,7 +319,7 @@ export async function buildInfographic({ photoDataUrl, landmarks, groups, anchor
   ctx.stroke();
 
   // 리포트 전문(제목+설명)을 사진 아래에 그대로 그려 넣는다.
-  drawSections(ctx, blocks, contentPadding, sectionsTop, sizes);
+  drawSections(ctx, blocks, contentPadding, sectionsTop, textMaxWidth, sizes);
 
   ctx.fillStyle = PALETTE.muted;
   ctx.textAlign = 'center';

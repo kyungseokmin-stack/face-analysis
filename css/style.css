@@ -261,6 +261,9 @@ h3 { font-size: var(--text-md); margin: 0 0 var(--space-2); }
   background: var(--surface-alt);
   border-radius: var(--radius-md);
   padding: var(--space-3) var(--space-4);
+  /* .report-card와 같은 이유 — [data-theme]가 --text를 밝게 덮어써도 .feature-text가
+     그 상속을 실제로 받으려면 이 지점에서 color: var(--text)로 다시 계산돼야 한다. */
+  color: var(--text);
 }
 
 .feature-list li:first-child {
@@ -785,6 +788,12 @@ h3 { font-size: var(--text-md); margin: 0 0 var(--space-2); }
   border-radius: var(--radius-md);
   padding: var(--space-5);
   box-shadow: var(--shadow-sm);
+  /* 헤드라인·본문 목록 등 하위 요소 다수가 color를 따로 지정하지 않고 상속에 기댄다.
+     여기서 명시적으로 var(--text)를 선언해 둬야, [data-theme] 카드에서 --text가
+     밝은 색으로 덮어써졌을 때 그 상속 사슬이 이 지점부터 다시 계산돼 하위 요소까지
+     제대로 밝은 색을 쓴다(그렇지 않으면 body의 이미 계산된 어두운 색을 그대로 물려받아
+     짙은 배경 위에 짙은 글자가 렌더링되는 대비 문제가 생긴다). */
+  color: var(--text);
 }
 .report-card.qualitative {
   border-style: dashed;
@@ -795,8 +804,11 @@ h3 { font-size: var(--text-md); margin: 0 0 var(--space-2); }
    이미지 반영). 라이트/다크 모드와 무관하게 고정된 색으로, 배지·헤드라인·밑줄 등 하위
    요소가 이미 --text/--accent 계열 커스텀 프로퍼티를 쓰고 있어 여기서 그 값만 밝은 색으로
    덮어쓰면 하위 요소들이 자동으로 배경과 대비되는 색을 쓴다(개별 선택자를 따로 만들 필요가
-   없다). --danger(밑줄색)는 다크 배경 위에서도 잘 보이도록 밝은 산호색 계열로 통일했다. */
-.report-card[data-theme] {
+   없다). --danger(밑줄색)는 다크 배경 위에서도 잘 보이도록 밝은 산호색 계열로 통일했다.
+   같은 색상 규칙을 첫 화면의 특징 타일(.feature-list li)에도 적용해, 첫 화면과 리포트
+   화면이 같은 카드 디자인 언어를 쓰도록 맞췄다. */
+.report-card[data-theme],
+.feature-list li[data-theme] {
   border: none;
   --text: #fbf6ef;
   --text-muted: rgba(251, 246, 239, 0.78);
@@ -806,17 +818,17 @@ h3 { font-size: var(--text-md); margin: 0 0 var(--space-2); }
   --border: rgba(251, 246, 239, 0.28);
   --danger: #ff9d85;
 }
-.report-card[data-theme="ink"] { background: #2f3b52; }
-.report-card[data-theme="ember"] { background: #7c3a1c; }
-.report-card[data-theme="clay"] { background: #8a4a42; }
-.report-card[data-theme="moss"] { background: #55603f; }
-.report-card[data-theme="slate"] { background: #3f5060; }
-.report-card[data-theme="ochre"] { background: #7c5f2b; }
-.report-card[data-theme="plum"] { background: #5a3552; }
-.report-card[data-theme="brick"] { background: #8c4a2f; }
-.report-card[data-theme="pine"] { background: #2f6b5e; }
-.report-card[data-theme="taupe"] { background: #6b5642; }
-.report-card[data-theme="charcoal"] { background: #3a3530; }
+.report-card[data-theme="ink"], .feature-list li[data-theme="ink"] { background: #2f3b52; }
+.report-card[data-theme="ember"], .feature-list li[data-theme="ember"] { background: #7c3a1c; }
+.report-card[data-theme="clay"], .feature-list li[data-theme="clay"] { background: #8a4a42; }
+.report-card[data-theme="moss"], .feature-list li[data-theme="moss"] { background: #55603f; }
+.report-card[data-theme="slate"], .feature-list li[data-theme="slate"] { background: #3f5060; }
+.report-card[data-theme="ochre"], .feature-list li[data-theme="ochre"] { background: #7c5f2b; }
+.report-card[data-theme="plum"], .feature-list li[data-theme="plum"] { background: #5a3552; }
+.report-card[data-theme="brick"], .feature-list li[data-theme="brick"] { background: #8c4a2f; }
+.report-card[data-theme="pine"], .feature-list li[data-theme="pine"] { background: #2f6b5e; }
+.report-card[data-theme="taupe"], .feature-list li[data-theme="taupe"] { background: #6b5642; }
+.report-card[data-theme="charcoal"], .feature-list li[data-theme="charcoal"] { background: #3a3530; }
 
 .report-card-header {
   display: flex;

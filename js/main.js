@@ -9,6 +9,7 @@ import { buildReport } from './reportEngine.js';
 import { buildInfographic, downloadCanvas } from './infographic.js';
 import { initAudio, playStepDing, playAllDone } from './sound.js';
 import { cropEarBand } from './earCrop.js';
+import { SECTION_THEMES, deriveCardHeadline } from './reportCardText.js';
 
 const screens = {
   intro: document.getElementById('screen-intro'),
@@ -484,59 +485,31 @@ function appendInterpretationSpans(container, text) {
   container.appendChild(document.createTextNode(text));
 }
 
-// 리포트 화면을 "주제별 색상 카드 + 한줄 요약, 나머지는 더 보기" 형태로 바꾼다(참고
-// 이미지 반영, 텍스트가 너무 길어 핵심이 눈에 안 들어온다는 지적). 섹션마다 서로 다른
-// 색상 테마를 입혀 카드 간 구분을 뚜렷하게 하고, 카드 색상에 맞춰 본문·배지·밑줄 등에
-// 쓰이는 CSS 커스텀 프로퍼티(--text, --accent 등)를 카드 단위로 덮어써 하위 요소들이
-// 자동으로 대비되는 색을 쓰도록 한다(style.css의 [data-theme] 규칙 참고).
-const SECTION_THEMES = {
-  synthesis: 'ink',
-  'interest-highlight': 'ember',
-  'face-shape': 'clay',
-  samjeong: 'moss',
-  oak: 'slate',
-  'ogwan-eyebrow': 'ochre',
-  'ogwan-eye': 'plum',
-  'ogwan-nose': 'brick',
-  'ogwan-mouth': 'pine',
-  'ogwan-ear': 'taupe',
-  sibigung: 'charcoal',
-};
-
-function splitFirstSentence(text) {
-  if (!text) return { first: '', rest: '' };
-  const idx = text.indexOf('. ');
-  if (idx !== -1) return { first: text.slice(0, idx + 1), rest: text.slice(idx + 2).trim() };
-  return { first: text, rest: '' };
-}
-
-// 항목이 하나뿐인 카드(종합 총평·얼굴형·삼정)는 그 한 문장 안에서 "무엇이 어떻다"에 해당하는
-// 앞부분(첫 쉼표 또는 첫 마침표까지)을 헤드라인으로, 나머지를 요약문으로 쓴다.
-function splitLeadClause(line) {
-  const body = line.includes('\n') ? line.slice(line.indexOf('\n') + 1) : line;
-  const commaIdx = body.indexOf(',');
-  if (commaIdx !== -1 && commaIdx < 40) {
-    return { headline: body.slice(0, commaIdx).trim(), rest: body.slice(commaIdx + 1).trim() };
+function buildTextList(lines) {
+  const ul = document.createElement('ul');
+  ul.className = 'report-text-list';
+  for (const line of lines) {
+    const li = document.createElement('li');
+    // reportEngine.js가 십이궁류 항목에 한해 '\n'으로 "궁 이름 · 위치" 헤더와 해설 본문을
+    // 구분해 넘긴다 — 헤더는 굵게 한 줄로, 본문은 "- " 표시와 함께 다음 줄에 렌더링해
+    // 여러 항목이 나열될 때도 항목별 경계가 뚜렷이 보이게 한다.
+    const nlIdx = line.indexOf('\n');
+    if (nlIdx === -1) {
+      appendInterpretationSpans(li, line);
+    } else {
+      const label = document.createElement('div');
+      label.className = 'report-item-label';
+      label.textContent = line.slice(0, nlIdx);
+      const body = document.createElement('div');
+      body.className = 'report-item-body';
+      body.appendChild(document.createTextNode('- '));
+      appendInterpretationSpans(body, line.slice(nlIdx + 1));
+      li.appendChild(label);
+      li.appendChild(body);
+    }
+    ul.appendChild(li);
   }
-  const periodIdx = body.indexOf('.');
-  if (periodIdx !== -1) return { headline: body.slice(0, periodIdx).trim(), rest: body.slice(periodIdx + 1).trim() };
-  return { headline: body.trim(), rest: '' };
-}
-
-// 항목이 여러 개인 카드(오악·오관·십이궁 등)는 특정 항목 하나만 대표로 내세우면 나머지
-// 항목을 배제한다는 인상을 줄 수 있어, 대신 이미 작성된 description의 첫 문장을 헤드라인,
-// 나머지 문장을 요약으로 재사용한다(새 해석 문장을 짓지 않는다).
-function deriveCardHeadline(section) {
-  if (section.highlight) {
-    const { rest } = splitLeadClause(section.text[0] || '');
-    return { headline: section.highlight, summary: rest || section.description || '' };
-  }
-  if (section.text.length === 1) {
-    const { headline, rest } = splitLeadClause(section.text[0]);
-    return { headline, summary: rest };
-  }
-  const { first, rest } = splitFirstSentence(section.description || '');
-  return { headline: first || section.title, summary: rest };
+  return ul;
 }
 
 function renderReportNav(sections) {
@@ -588,17 +561,21 @@ function renderReport(report, earPhotos = []) {
 
     // 굵은 헤드라인 + 1~2줄 요약 — 참고 이미지처럼 카드를 펼치지 않아도 핵심이 바로
     // 보이게 한다. 새 해석 문장을 짓지 않고 항상 기존 텍스트(단일 항목이면 그 문장의
-    // 앞부분, 여러 항목이면 description)에서 뽑아 쓴다(deriveCardHeadline 참고).
-    const { headline, summary } = deriveCardHeadline(section);
-    const h3 = document.createElement('h3');
-    h3.className = 'report-headline';
-    h3.textContent = headline;
-    card.appendChild(h3);
-    if (summary) {
-      const summaryEl = document.createElement('p');
-      summaryEl.className = 'report-summary';
-      summaryEl.textContent = summary;
-      card.appendChild(summaryEl);
+    // 앞부분, 여러 항목이면 description)에서 뽑아 쓴다(deriveCardHeadline 참고). 종합
+    // 총평은 "어떻게 정리했는지" 메타 설명 대신 결론 자체를 바로 보여달라는 요청에 따라
+    // 헤드라인/요약 없이(headlineData === null) 전체 문장을 그대로, 접지 않고 보여준다.
+    const headlineData = deriveCardHeadline(section);
+    if (headlineData) {
+      const h3 = document.createElement('h3');
+      h3.className = 'report-headline';
+      h3.textContent = headlineData.headline;
+      card.appendChild(h3);
+      if (headlineData.summary) {
+        const summaryEl = document.createElement('p');
+        summaryEl.className = 'report-summary';
+        summaryEl.textContent = headlineData.summary;
+        card.appendChild(summaryEl);
+      }
     }
 
     if (section.ratios) {
@@ -635,6 +612,13 @@ function renderReport(report, earPhotos = []) {
       card.appendChild(p);
     }
 
+    if (!headlineData) {
+      // 종합 총평 — 헤드라인/요약 없이 전체 문장을 그대로, 접지 않고 바로 보여준다.
+      card.appendChild(buildTextList(section.text));
+      container.appendChild(card);
+      continue;
+    }
+
     // 전체 해설 — 기본은 접힌 상태다. 항목이 하나뿐인 카드는 description이 헤드라인/요약에
     // 쓰이지 않았으니 여기서 그대로 보여주고, 항목이 여럿인 카드는 description이 이미
     // 헤드라인/요약으로 쓰였으므로 여기서 다시 보여주지 않는다(중복 방지).
@@ -649,30 +633,7 @@ function renderReport(report, earPhotos = []) {
       detail.appendChild(desc);
     }
 
-    const ul = document.createElement('ul');
-    ul.className = 'report-text-list';
-    for (const line of section.text) {
-      const li = document.createElement('li');
-      // reportEngine.js가 십이궁류 항목에 한해 '\n'으로 "궁 이름 · 위치" 헤더와 해설 본문을
-      // 구분해 넘긴다 — 헤더는 굵게 한 줄로, 본문은 "- " 표시와 함께 다음 줄에 렌더링해
-      // 여러 항목이 나열될 때도 항목별 경계가 뚜렷이 보이게 한다.
-      const nlIdx = line.indexOf('\n');
-      if (nlIdx === -1) {
-        appendInterpretationSpans(li, line);
-      } else {
-        const label = document.createElement('div');
-        label.className = 'report-item-label';
-        label.textContent = line.slice(0, nlIdx);
-        const body = document.createElement('div');
-        body.className = 'report-item-body';
-        body.appendChild(document.createTextNode('- '));
-        appendInterpretationSpans(body, line.slice(nlIdx + 1));
-        li.appendChild(label);
-        li.appendChild(body);
-      }
-      ul.appendChild(li);
-    }
-    detail.appendChild(ul);
+    detail.appendChild(buildTextList(section.text));
 
     if (section.checklist) {
       const clWrap = document.createElement('div');
