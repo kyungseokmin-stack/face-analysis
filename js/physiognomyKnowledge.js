@@ -460,11 +460,11 @@ export function classifyFaceShape(measurements) {
 // 십이궁(十二宮) 중, 얼굴 랜드마크로 위치를 특정할 수 있는 주요 궁만 선별
 // ---------------------------------------------------------------------------
 export const SIBIGUNG_INFO = {
-  title: '십이궁(十二宮) 중 주요 7궁',
+  title: '십이궁(十二宮) 중 주요 8궁',
   source: 'liuzhuang',
   description:
     '얼굴 각 부위에 인생의 열두 영역(궁宮)을 대응시키는 전통적 틀입니다. 이번 리포트에서는 랜드마크로 위치 특정이 비교적 명확한 ' +
-    '일곱 궁만 소개합니다.',
+    '여덟 궁만 소개합니다.',
   gungs: {
     myeong: { label: '명궁(命宮)', region: '양 눈썹 사이 (인당)', desc: '성격의 그릇과 정신적 여유를 보는 자리' },
     gwallok: { label: '관록궁(官祿宮)', region: '이마 정중앙', desc: '직업운·명예운을 보는 자리' },
@@ -473,6 +473,7 @@ export const SIBIGUNG_INFO = {
     bubu: { label: '부부궁(夫妻宮)', region: '눈꼬리(간문)', desc: '배우자운을 보는 자리' },
     nobok: { label: '노복궁(奴僕宮)', region: '턱 끝', desc: '아랫사람 복, 말년의 대인관계를 보는 자리' },
     jeontaek: { label: '전택궁(田宅宮)', region: '눈썹과 눈 사이 (눈두덩이)', desc: '부동산·유산운을 보는 자리' },
+    jilaek: { label: '질액궁(疾厄宮)', region: '산근(콧대 시작점)', desc: '건강운·의지력을 보는 자리' },
   },
 };
 
@@ -485,6 +486,16 @@ const JEONTAEK_TEXT = {
   low: '눈썹과 눈 사이(눈두덩이, 전택궁)가 좁은 편입니다. 전통적으로 재물을 아끼고 알뜰하게 관리하는 근면·절약형으로 풀이하나, 여유가 부족해 조급해지기 쉽고 부동산·유산과는 인연이 옅어 스스로 기반을 일궈야 하는 상으로도 봅니다.',
   mid: '눈썹과 눈 사이(전택궁)의 너비가 무난한 편으로, 재물운에 특별한 쏠림 없이 흘러가는 상입니다.',
   high: '눈썹과 눈 사이(눈두덩이, 전택궁)가 넓게 트인 편입니다. 전통적으로 도량이 크고 부모덕·유산복이 있어 여유롭게 재물을 관리하는 상으로 풀이하나, 지나치게 넓으면 씀씀이가 헤퍼지거나 매사에 나태해 보일 수 있는 상으로도 봅니다.',
+};
+
+// 질액궁(산근 돌출도) — 문헌 근거가 "높다/낮다" 이분법 수준에 가까워(전택궁과 같은 이유)
+// 5단계가 아닌 3단계(tier3)로 다룬다. 경계값도 실사용자 검증 전 잠정치다.
+export const JILAEK_BOUNDS = [0.35, 0.65];
+
+const JILAEK_TEXT = {
+  low: '산근(콧대 시작점)이 낮고 완만한 편입니다. 전통적으로 신중하고 매사에 조심스러운 상으로 보는 한편, 체력을 아껴 써야 하고 중년에 건강·운세의 기복을 겪기 쉬운 상으로도 풀이합니다.',
+  mid: '산근(콧대 시작점)의 높낮이가 무난한 편으로, 중년의 건강운에 특별한 쏠림 없이 흘러가는 상입니다.',
+  high: '산근(콧대 시작점)이 높고 두둑한 편입니다. 전통적으로 강단 있고 의지가 굳센 상으로 풀이하나, 지나치게 두드러지면 고집이 세고 융통성이 부족해 보일 수 있는 상으로도 봅니다.',
 };
 
 // ---------------------------------------------------------------------------
@@ -623,6 +634,15 @@ export function interpretSibigung(measurements) {
     gung: 'jeontaek',
     text: JEONTAEK_TEXT[tier3(measurements.eyelidGapRatio, EYELID_GAP_BOUNDS)],
   });
+
+  // 질액궁은 옆모습(turnA/turnB) 캡처에서만 산근 돌출도를 잴 수 있어(부부궁의 cheekBalance와
+  // 같은 이유), 값이 없으면 억지로 채우지 않고 항목 자체를 표시하지 않는다.
+  if (measurements.nasionProminence != null) {
+    notes.push({
+      gung: 'jilaek',
+      text: JILAEK_TEXT[tier3(measurements.nasionProminence, JILAEK_BOUNDS)],
+    });
+  }
 
   return notes;
 }

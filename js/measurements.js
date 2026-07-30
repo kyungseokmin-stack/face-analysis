@@ -291,6 +291,37 @@ function computeSinglePoseMetrics(landmarks, groups, pose, hairlineY) {
     }
   }
 
+  // --- 산근 돌출도(질액궁, 옆모습 기반) ---
+  // 산근(콧대가 시작되는, 미간 아래 지점)의 랜드마크 인덱스는 MediaPipe 공식 문서 어디에도
+  // 이름으로 나와 있지 않지만, 공식 소스코드(face_mesh_connections.py)의 FACEMESH_NOSE 연결
+  // 순서가 168→6→197→195→5→4→1(코끝, 이미 이 파일에서 신뢰하는 인덱스)로 이어지고, 공식
+  // 3D 캐노니컬 얼굴 모델(canonical_face_model.obj)에서 168이 눈썹 높이의 z(돌출) 국소
+  // 최솟값 — 즉 이마 경사가 끝나고 콧대가 다시 튀어나오기 시작하는 지점 — 이라는 것을 직접
+  // 확인해 산근으로 확정했다. 코끝과 같은 방식(얼굴 옆선에서 수직 거리, sin(yaw) 보정)으로
+  // "돌출 정도"를 잰다 — 산근은 코끝처럼 코 길이 대비 각도로 볼 만한 두 번째 기준점이 없어
+  // (지나온 이마와의 관계이지, 코 자체의 길이와는 무관하다) 각도가 아니라 거리로 충분하다.
+  let nasionProminenceProfile = null;
+  if (pose && Math.abs(pose.yaw) >= PROFILE_YAW_MIN_DEGREES) {
+    const nasion = landmarks[168];
+    let topPt = null, bottomPt = null;
+    for (const i of ovalIdx) {
+      const p = landmarks[i];
+      if (!p) continue;
+      if (!topPt || p.y < topPt.y) topPt = p;
+      if (!bottomPt || p.y > bottomPt.y) bottomPt = p;
+    }
+    if (nasion && topPt && bottomPt) {
+      const lineLen = Math.hypot(bottomPt.x - topPt.x, bottomPt.y - topPt.y);
+      if (lineLen > 0) {
+        const rawPerp = pointToLineDistance(nasion, topPt, bottomPt);
+        const depthEquivalent = rawPerp / lineLen / Math.sin((Math.abs(pose.yaw) * Math.PI) / 180);
+        // 산근은 코끝만큼 튀어나오지 않는, 훨씬 미세한 굴곡이다. 문헌 실측 데이터는 아니고
+        // 일반적인 안면 비례를 참고한 잠정치로, 실사용자 검증 전까지는 대략적인 근사치다.
+        nasionProminenceProfile = clamp(0.5 + (depthEquivalent - 0.02) * 15, 0, 1);
+      }
+    }
+  }
+
   // --- 입 ---
   const mouthWidth = lipsBox.width;
   const mouthWidthToNoseRatio = noseWidth ? mouthWidth / noseWidth : null;
@@ -374,6 +405,7 @@ function computeSinglePoseMetrics(landmarks, groups, pose, hairlineY) {
     noseLengthToFaceRatio,
     noseProminence,
     noseProminenceProfile,
+    nasionProminenceProfile,
     mouthWidthToNoseRatio,
     mouthWidthToFaceRatio,
     widthToHeightRatio,
@@ -441,6 +473,14 @@ export function computeMeasurements(capturedPoses, groups, hairlineY = null) {
     ? average(profileSamples)
     : average(succeeded.map(([, v]) => v.noseProminence));
 
+  // 산근 돌출도(질액궁): 코와 달리 정면 사진 기반 대체 방법이 없다 — 옆모습이 없으면 그냥
+  // null로 두고, reportEngine.js가 이 경우 질액궁 항목 자체를 표시하지 않는다(부부궁이
+  // cheekBalance 없을 때 표시하지 않는 것과 같은 방식 — 근거 없이 억지로 값을 채우지 않는다).
+  const nasionProfileSamples = succeeded
+    .map(([, v]) => v.nasionProminenceProfile)
+    .filter((v) => v != null);
+  const nasionProminence = nasionProfileSamples.length ? average(nasionProfileSamples) : null;
+
   // 나머지 지표는 정면(front)이 없으면 사용 가능한 첫 포즈를 사용
   const primary = perPose.front ?? succeeded[0][1];
 
@@ -466,6 +506,7 @@ export function computeMeasurements(capturedPoses, groups, hairlineY = null) {
     noseWidthToFaceRatio: primary.noseWidthToFaceRatio,
     noseLengthToFaceRatio: primary.noseLengthToFaceRatio,
     noseProminence,
+    nasionProminence,
     mouthWidthToNoseRatio: primary.mouthWidthToNoseRatio,
     mouthWidthToFaceRatio: primary.mouthWidthToFaceRatio,
     widthToHeightRatio: primary.widthToHeightRatio,
