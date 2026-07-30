@@ -470,7 +470,7 @@ function renderKeyMetrics(keyMetrics) {
 // 뒤 절(주의점)은 밑줄로 표시해 런타임에 시각적으로 구분한다.
 const INTERPRETATION_SPLIT_MARKERS = ['풀이하는 한편, ', '보는 한편, ', '풀이하나, '];
 
-function appendInterpretationSpans(container, text) {
+function appendInterpretationSpans(container, text, { boldFallback = false } = {}) {
   for (const marker of INTERPRETATION_SPLIT_MARKERS) {
     const idx = text.indexOf(marker);
     if (idx === -1) continue;
@@ -482,10 +482,19 @@ function appendInterpretationSpans(container, text) {
     container.appendChild(underline);
     return;
   }
-  container.appendChild(document.createTextNode(text));
+  // 종합 총평은 길흉 양면 연결어를 쓰지 않는 별도 문체라 위 마커가 전혀 매치되지 않는다.
+  // 그래도 굵게 강조해달라는 요청에 따라, 마커가 없을 때는 boldFallback이 켜진 호출에
+  // 한해 문장 전체를 굵게 표시한다(다른 카드에는 영향 없도록 기본값은 false).
+  if (boldFallback) {
+    const strong = document.createElement('strong');
+    strong.textContent = text;
+    container.appendChild(strong);
+  } else {
+    container.appendChild(document.createTextNode(text));
+  }
 }
 
-function buildTextList(lines) {
+function buildTextList(lines, { boldFallback = false } = {}) {
   const ul = document.createElement('ul');
   ul.className = 'report-text-list';
   for (const line of lines) {
@@ -495,7 +504,7 @@ function buildTextList(lines) {
     // 여러 항목이 나열될 때도 항목별 경계가 뚜렷이 보이게 한다.
     const nlIdx = line.indexOf('\n');
     if (nlIdx === -1) {
-      appendInterpretationSpans(li, line);
+      appendInterpretationSpans(li, line, { boldFallback });
     } else {
       const label = document.createElement('div');
       label.className = 'report-item-label';
@@ -613,20 +622,22 @@ function renderReport(report, earPhotos = []) {
     }
 
     if (!headlineData) {
-      // 종합 총평 — 헤드라인/요약 없이 전체 문장을 그대로, 접지 않고 바로 보여준다.
-      card.appendChild(buildTextList(section.text));
+      // 종합 총평 — 헤드라인/요약 없이 전체 문장을 그대로, 접지 않고 바로 보여준다. 카드가
+      // 길어지더라도 굵게 강조해달라는 요청에 따라 boldFallback을 켠다(다른 문체와 달리
+      // 길흉 양면 연결어가 없어 항상 이 굵게 처리로 떨어진다).
+      card.appendChild(buildTextList(section.text, { boldFallback: true }));
       container.appendChild(card);
       continue;
     }
 
-    // 전체 해설 — 기본은 접힌 상태다. 항목이 하나뿐인 카드는 description이 헤드라인/요약에
-    // 쓰이지 않았으니 여기서 그대로 보여주고, 항목이 여럿인 카드는 description이 이미
-    // 헤드라인/요약으로 쓰였으므로 여기서 다시 보여주지 않는다(중복 방지).
+    // 전체 해설 — 기본은 접힌 상태다. description(카드 주제에 대한 일반 설명)은 항목이
+    // 하나뿐인 카드든 여럿인 카드든 headline/summary에 쓰이지 않으므로(둘 다 실제 해석
+    // 문장에서 뽑는다), 여기서 항상 보여준다.
     const detail = document.createElement('div');
     detail.className = 'report-detail';
     detail.hidden = true;
 
-    if (section.description && section.text.length === 1) {
+    if (section.description) {
       const desc = document.createElement('p');
       desc.className = 'report-desc';
       desc.textContent = section.description;

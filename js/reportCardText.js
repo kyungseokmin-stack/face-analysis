@@ -34,24 +34,40 @@ export const THEME_COLORS = {
   charcoal: '#3a3530',
 };
 
-function splitFirstSentence(text) {
-  if (!text) return { first: '', rest: '' };
+// "1.5배"처럼 숫자 안에 있는 마침표는 문장 종결이 아니므로, 뒤에 공백이 오거나 문자열
+// 맨 끝에 오는 마침표만 문장 종결로 본다.
+function findSentenceEndingPeriod(text) {
   const idx = text.indexOf('. ');
-  if (idx !== -1) return { first: text.slice(0, idx + 1), rest: text.slice(idx + 2).trim() };
-  return { first: text, rest: '' };
+  if (idx !== -1) return idx;
+  return text.endsWith('.') ? text.length - 1 : -1;
 }
 
-// 항목이 하나뿐인 카드(얼굴형·삼정)는 그 문장 안에서 "무엇이 어떻다"에 해당하는 앞부분
-// (첫 쉼표 또는 첫 마침표까지)을 헤드라인으로, 나머지를 요약으로 쓴다.
+// 항목이 하나뿐인 카드(얼굴형·삼정)는 그 문장 안에서 "무엇이 어떻다"에 해당하는 앞부분을
+// 헤드라인으로, 나머지를 요약으로 쓴다. 첫 문장 자체가 짧으면(문법적으로 완결된 채로도
+// 헤드라인 길이에 적당하면) 쉼표에서 자르지 않고 문장 그대로 쓴다 — 그렇지 않으면 "~에
+// 들어," 처럼 뒤에 이어지는 절이 있어야 말이 되는 어중간한 위치에서 잘려 어색해진다.
+// 첫 문장이 너무 길 때만(삼정처럼 한 문장 안에 쉼표로 이어진 절이 여럿인 경우) 첫 쉼표까지
+// 잘라 헤드라인을 더 짧게 만든다.
+const LEAD_CLAUSE_MAX_LENGTH = 45;
+
 function splitLeadClause(line) {
   const body = line.includes('\n') ? line.slice(line.indexOf('\n') + 1) : line;
-  const commaIdx = body.indexOf(',');
-  if (commaIdx !== -1 && commaIdx < 40) {
-    return { headline: body.slice(0, commaIdx).trim(), rest: body.slice(commaIdx + 1).trim() };
+  const periodIdx = findSentenceEndingPeriod(body);
+  const firstSentence = periodIdx !== -1 ? body.slice(0, periodIdx) : body;
+  const restAfterPeriod = periodIdx !== -1 ? body.slice(periodIdx + 1).trim() : '';
+
+  if (firstSentence.length <= LEAD_CLAUSE_MAX_LENGTH) {
+    return { headline: firstSentence.trim(), rest: restAfterPeriod };
   }
-  const periodIdx = body.indexOf('.');
-  if (periodIdx !== -1) return { headline: body.slice(0, periodIdx).trim(), rest: body.slice(periodIdx + 1).trim() };
-  return { headline: body.trim(), rest: '' };
+  const commaIdx = firstSentence.indexOf(',');
+  if (commaIdx !== -1) {
+    const restOfSentence = firstSentence.slice(commaIdx + 1).trim();
+    return {
+      headline: firstSentence.slice(0, commaIdx).trim(),
+      rest: [restOfSentence, restAfterPeriod].filter(Boolean).join(' '),
+    };
+  }
+  return { headline: firstSentence.trim(), rest: restAfterPeriod };
 }
 
 /**
@@ -61,8 +77,13 @@ function splitLeadClause(line) {
  *   보여줘야 한다는 신호다.
  * - 항목이 하나뿐인 카드는 그 문장에서 뽑고, highlight(얼굴형의 오행 라벨 등)가 있으면
  *   그걸 헤드라인으로 우선한다.
- * - 항목이 여럿인 카드(오악·오관·십이궁 등)는 특정 항목 하나만 대표로 내세우면 나머지를
- *   배제하는 인상을 줄 수 있어, 이미 작성된 description의 첫 문장을 재사용한다.
+ * - 항목이 여럿인 카드(오악·오관·십이궁 등)는 description(카드 주제에 대한 일반 설명일
+ *   뿐, 실제 해석 결과가 아니다)을 쓰지 않는다. 대신 각 항목의 실제 해석 문장에서 짧은
+ *   리드 구절(splitLeadClause)을 뽑아, 첫 항목은 헤드라인으로 도드라지게 하고 나머지
+ *   항목은 전부 요약에 이어 붙인다 — 특정 항목 하나만 대표로 내세우지 않으면서도, 실제
+ *   측정 결과가 카드를 펼치기 전부터 드러난다. 이 코드베이스의 해설 문장은 대부분 "OOO
+ *   (위치)가 ~한 편입니다"처럼 주어를 문장 맨 앞에 쓰므로, 리드 구절만 뽑아도 어떤 항목
+ *   얘기인지 대개 그 자체로 드러난다.
  * @returns {{headline: string, summary: string} | null}
  */
 export function deriveCardHeadline(section) {
@@ -75,6 +96,7 @@ export function deriveCardHeadline(section) {
     const { headline, rest } = splitLeadClause(section.text[0]);
     return { headline, summary: rest };
   }
-  const { first, rest } = splitFirstSentence(section.description || '');
-  return { headline: first || section.title, summary: rest };
+  const leads = section.text.map((line) => splitLeadClause(line).headline).filter(Boolean);
+  const [firstLead, ...restLeads] = leads;
+  return { headline: firstLead || section.title, summary: restLeads.join(' · ') };
 }

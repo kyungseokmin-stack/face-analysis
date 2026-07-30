@@ -187,9 +187,11 @@ function drawSections(ctx, blocks, x, startY, maxWidth, sizes) {
     }
 
     if (block.bodyLines.length) {
+      // bodyLines는 종합 총평(헤드라인 없는 카드) 전용이다 — 웹 화면과 마찬가지로 카드가
+      // 길어지더라도 굵게 강조해달라는 요청에 따라 bold를 쓴다.
       ty += sizes.summaryGap;
       ctx.fillStyle = textColor;
-      ctx.font = `${sizes.summarySize}px sans-serif`;
+      ctx.font = `bold ${sizes.summarySize}px sans-serif`;
       for (const line of block.bodyLines) {
         ctx.fillText(line, textX, ty);
         ty += sizes.summaryLineHeight;
