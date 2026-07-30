@@ -31,6 +31,14 @@ function sourceTag(key) {
   return s ? { short: s.short, full: s.full, note: s.note } : null;
 }
 
+// 십이궁 항목 한 줄을 "궁 이름 · 위치" 헤더와 해설 본문으로 나눠, 화면(main.js)이 헤더를
+// 굵게, 본문을 줄바꿈된 "- " 항목으로 렌더링할 수 있게 한다(항목이 많아 한 줄로 이어붙이면
+// 가독성이 떨어진다는 지적). '\n'을 헤더/본문 구분자로 쓴다.
+function formatGungLine(n) {
+  const gung = SIBIGUNG_INFO.gungs[n.gung];
+  return `${gung.label} · ${gung.region}\n${n.text}`;
+}
+
 // 관심 분야(선택) 별로 십이궁 중 가장 관련 깊은 궁만 골라 종합 총평 바로 아래에 다시
 // 보여주기 위한 매핑. 새 해석 문장을 짓지 않고, 이미 계산된 십이궁 문구를 그대로 재사용한다.
 const INTEREST_LABELS = {
@@ -99,7 +107,7 @@ export function buildReport(measurements, userContext = {}) {
         title: `관심 분야 — ${INTEREST_LABELS[interestArea]}`,
         source: null,
         description: '선택하신 관심 분야와 가장 관련 깊은 항목만 모아 먼저 보여드려요. 같은 내용이 아래 해당 섹션에도 들어 있어요.',
-        text: picked.map((n) => `${SIBIGUNG_INFO.gungs[n.gung].label} (${SIBIGUNG_INFO.gungs[n.gung].region}) — ${n.text}`),
+        text: picked.map(formatGungLine),
       });
     }
   }
@@ -214,7 +222,7 @@ export function buildReport(measurements, userContext = {}) {
       title: SIBIGUNG_INFO.title,
       source: sourceTag(SIBIGUNG_INFO.source),
       description: SIBIGUNG_INFO.description,
-      text: sibigungNotes.map((n) => `${SIBIGUNG_INFO.gungs[n.gung].label} (${SIBIGUNG_INFO.gungs[n.gung].region}) — ${n.text}`),
+      text: sibigungNotes.map(formatGungLine),
     });
   }
 

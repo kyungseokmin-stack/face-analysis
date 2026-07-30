@@ -92,7 +92,10 @@ function layoutSections(measureCtx, sections, maxWidth, sizes) {
     const titleLines = wrapText(measureCtx, titleText, maxWidth);
 
     measureCtx.font = `${sizes.bodySize}px sans-serif`;
-    const bodyText = section.text.join(' ');
+    // reportEngine.js가 십이궁류 항목에서 헤더/본문 구분자로 넘기는 '\n'은 캔버스 텍스트에서는
+    // 줄바꿈으로 처리되지 않으므로(fillText는 개행을 인식하지 않는다), 흐르는 한 문단으로
+    // 합치기 전에 공백으로 바꿔 없앤다.
+    const bodyText = section.text.join(' ').replace(/\n/g, ' ');
     const bodyLines = wrapText(measureCtx, bodyText, maxWidth);
 
     const blockHeight =

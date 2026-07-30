@@ -462,6 +462,83 @@ function renderKeyMetrics(keyMetrics) {
   dashboard.hidden = false;
 }
 
+// 해설 문장 대부분이 "전통적으로 A한 상으로 보는 한편, B한 상으로도 봅니다"처럼 통상적
+// 해석(A)과 주의·반전 해석(B)을 한 문장에 함께 담는 구조를 공유한다(길흉 양면 균형 설계).
+// 글이 길어 어디가 핵심인지 한눈에 들어오지 않는다는 지적에 따라, physiognomyKnowledge.js의
+// 30여 개 문장 각각에 수동으로 마크업을 넣는 대신 이 공통 연결어를 기준으로 앞 절은 굵게,
+// 뒤 절(주의점)은 밑줄로 표시해 런타임에 시각적으로 구분한다.
+const INTERPRETATION_SPLIT_MARKERS = ['풀이하는 한편, ', '보는 한편, ', '풀이하나, '];
+
+function appendInterpretationSpans(container, text) {
+  for (const marker of INTERPRETATION_SPLIT_MARKERS) {
+    const idx = text.indexOf(marker);
+    if (idx === -1) continue;
+    const strong = document.createElement('strong');
+    strong.textContent = text.slice(0, idx + marker.length);
+    const underline = document.createElement('u');
+    underline.textContent = text.slice(idx + marker.length);
+    container.appendChild(strong);
+    container.appendChild(underline);
+    return;
+  }
+  container.appendChild(document.createTextNode(text));
+}
+
+// 리포트 화면을 "주제별 색상 카드 + 한줄 요약, 나머지는 더 보기" 형태로 바꾼다(참고
+// 이미지 반영, 텍스트가 너무 길어 핵심이 눈에 안 들어온다는 지적). 섹션마다 서로 다른
+// 색상 테마를 입혀 카드 간 구분을 뚜렷하게 하고, 카드 색상에 맞춰 본문·배지·밑줄 등에
+// 쓰이는 CSS 커스텀 프로퍼티(--text, --accent 등)를 카드 단위로 덮어써 하위 요소들이
+// 자동으로 대비되는 색을 쓰도록 한다(style.css의 [data-theme] 규칙 참고).
+const SECTION_THEMES = {
+  synthesis: 'ink',
+  'interest-highlight': 'ember',
+  'face-shape': 'clay',
+  samjeong: 'moss',
+  oak: 'slate',
+  'ogwan-eyebrow': 'ochre',
+  'ogwan-eye': 'plum',
+  'ogwan-nose': 'brick',
+  'ogwan-mouth': 'pine',
+  'ogwan-ear': 'taupe',
+  sibigung: 'charcoal',
+};
+
+function splitFirstSentence(text) {
+  if (!text) return { first: '', rest: '' };
+  const idx = text.indexOf('. ');
+  if (idx !== -1) return { first: text.slice(0, idx + 1), rest: text.slice(idx + 2).trim() };
+  return { first: text, rest: '' };
+}
+
+// 항목이 하나뿐인 카드(종합 총평·얼굴형·삼정)는 그 한 문장 안에서 "무엇이 어떻다"에 해당하는
+// 앞부분(첫 쉼표 또는 첫 마침표까지)을 헤드라인으로, 나머지를 요약문으로 쓴다.
+function splitLeadClause(line) {
+  const body = line.includes('\n') ? line.slice(line.indexOf('\n') + 1) : line;
+  const commaIdx = body.indexOf(',');
+  if (commaIdx !== -1 && commaIdx < 40) {
+    return { headline: body.slice(0, commaIdx).trim(), rest: body.slice(commaIdx + 1).trim() };
+  }
+  const periodIdx = body.indexOf('.');
+  if (periodIdx !== -1) return { headline: body.slice(0, periodIdx).trim(), rest: body.slice(periodIdx + 1).trim() };
+  return { headline: body.trim(), rest: '' };
+}
+
+// 항목이 여러 개인 카드(오악·오관·십이궁 등)는 특정 항목 하나만 대표로 내세우면 나머지
+// 항목을 배제한다는 인상을 줄 수 있어, 대신 이미 작성된 description의 첫 문장을 헤드라인,
+// 나머지 문장을 요약으로 재사용한다(새 해석 문장을 짓지 않는다).
+function deriveCardHeadline(section) {
+  if (section.highlight) {
+    const { rest } = splitLeadClause(section.text[0] || '');
+    return { headline: section.highlight, summary: rest || section.description || '' };
+  }
+  if (section.text.length === 1) {
+    const { headline, rest } = splitLeadClause(section.text[0]);
+    return { headline, summary: rest };
+  }
+  const { first, rest } = splitFirstSentence(section.description || '');
+  return { headline: first || section.title, summary: rest };
+}
+
 function renderReportNav(sections) {
   const nav = document.getElementById('report-nav');
   nav.innerHTML = '';
@@ -490,12 +567,16 @@ function renderReport(report, earPhotos = []) {
     const card = document.createElement('article');
     card.id = `section-${section.id}`;
     card.className = 'report-card' + (section.qualitative ? ' qualitative' : '');
+    const theme = SECTION_THEMES[section.id];
+    if (theme) card.dataset.theme = theme;
 
+    // 작은 라벨 줄(카테고리명 + 출처 배지) — 굵고 큰 헤드라인과 구분되는 보조 정보.
     const header = document.createElement('div');
     header.className = 'report-card-header';
-    const h3 = document.createElement('h3');
-    h3.textContent = section.title;
-    header.appendChild(h3);
+    const eyebrow = document.createElement('span');
+    eyebrow.className = 'report-eyebrow';
+    eyebrow.textContent = section.title;
+    header.appendChild(eyebrow);
     if (section.source) {
       const badge = document.createElement('span');
       badge.className = 'source-badge';
@@ -505,11 +586,19 @@ function renderReport(report, earPhotos = []) {
     }
     card.appendChild(header);
 
-    if (section.description) {
-      const desc = document.createElement('p');
-      desc.className = 'report-desc';
-      desc.textContent = section.description;
-      card.appendChild(desc);
+    // 굵은 헤드라인 + 1~2줄 요약 — 참고 이미지처럼 카드를 펼치지 않아도 핵심이 바로
+    // 보이게 한다. 새 해석 문장을 짓지 않고 항상 기존 텍스트(단일 항목이면 그 문장의
+    // 앞부분, 여러 항목이면 description)에서 뽑아 쓴다(deriveCardHeadline 참고).
+    const { headline, summary } = deriveCardHeadline(section);
+    const h3 = document.createElement('h3');
+    h3.className = 'report-headline';
+    h3.textContent = headline;
+    card.appendChild(h3);
+    if (summary) {
+      const summaryEl = document.createElement('p');
+      summaryEl.className = 'report-summary';
+      summaryEl.textContent = summary;
+      card.appendChild(summaryEl);
     }
 
     if (section.ratios) {
@@ -524,15 +613,6 @@ function renderReport(report, earPhotos = []) {
       }
       card.appendChild(bar);
     }
-
-    const ul = document.createElement('ul');
-    ul.className = 'report-text-list';
-    for (const line of section.text) {
-      const li = document.createElement('li');
-      li.textContent = line;
-      ul.appendChild(li);
-    }
-    card.appendChild(ul);
 
     if (section.showEarPhotos && earPhotos.length) {
       const photoRow = document.createElement('div');
@@ -555,6 +635,45 @@ function renderReport(report, earPhotos = []) {
       card.appendChild(p);
     }
 
+    // 전체 해설 — 기본은 접힌 상태다. 항목이 하나뿐인 카드는 description이 헤드라인/요약에
+    // 쓰이지 않았으니 여기서 그대로 보여주고, 항목이 여럿인 카드는 description이 이미
+    // 헤드라인/요약으로 쓰였으므로 여기서 다시 보여주지 않는다(중복 방지).
+    const detail = document.createElement('div');
+    detail.className = 'report-detail';
+    detail.hidden = true;
+
+    if (section.description && section.text.length === 1) {
+      const desc = document.createElement('p');
+      desc.className = 'report-desc';
+      desc.textContent = section.description;
+      detail.appendChild(desc);
+    }
+
+    const ul = document.createElement('ul');
+    ul.className = 'report-text-list';
+    for (const line of section.text) {
+      const li = document.createElement('li');
+      // reportEngine.js가 십이궁류 항목에 한해 '\n'으로 "궁 이름 · 위치" 헤더와 해설 본문을
+      // 구분해 넘긴다 — 헤더는 굵게 한 줄로, 본문은 "- " 표시와 함께 다음 줄에 렌더링해
+      // 여러 항목이 나열될 때도 항목별 경계가 뚜렷이 보이게 한다.
+      const nlIdx = line.indexOf('\n');
+      if (nlIdx === -1) {
+        appendInterpretationSpans(li, line);
+      } else {
+        const label = document.createElement('div');
+        label.className = 'report-item-label';
+        label.textContent = line.slice(0, nlIdx);
+        const body = document.createElement('div');
+        body.className = 'report-item-body';
+        body.appendChild(document.createTextNode('- '));
+        appendInterpretationSpans(body, line.slice(nlIdx + 1));
+        li.appendChild(label);
+        li.appendChild(body);
+      }
+      ul.appendChild(li);
+    }
+    detail.appendChild(ul);
+
     if (section.checklist) {
       const clWrap = document.createElement('div');
       clWrap.className = 'ear-checklist';
@@ -567,8 +686,22 @@ function renderReport(report, earPhotos = []) {
         row.appendChild(document.createTextNode(' ' + item.desc));
         clWrap.appendChild(row);
       }
-      card.appendChild(clWrap);
+      detail.appendChild(clWrap);
     }
+
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'report-detail-toggle';
+    toggle.textContent = '더 보기';
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.addEventListener('click', () => {
+      const willExpand = detail.hidden;
+      detail.hidden = !willExpand;
+      toggle.textContent = willExpand ? '접기' : '더 보기';
+      toggle.setAttribute('aria-expanded', String(willExpand));
+    });
+    card.appendChild(toggle);
+    card.appendChild(detail);
 
     container.appendChild(card);
   }
