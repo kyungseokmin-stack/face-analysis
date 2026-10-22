@@ -74,6 +74,17 @@ const STEP_DEFS = [
   },
 ];
 
+// "좌우 귀 촬영 인식이 잘 안 된다"는 재보고를 받고 _tick()을 다시 살펴보다 발견한 문제:
+// 목표 각도(특히 turnA/turnB의 45도 이상)에서는 옆모습이라 랜드마크가 일부 가려지고,
+// 고개를 실제로 돌리는 동작 자체가 모션 블러를 만들어 프레임마다 pose 추정값이 흔들리거나
+// (경계값 45도 언저리를 오르내림) MediaPipe가 한두 프레임 동안 아예 pose를 못 내놓는 일이
+// 흔하다. 그런데 기존 코드는 "목표를 벗어난 단 한 프레임"만으로 holdStart를 즉시 null로
+// 되돌려 350ms 연속 유지를 처음부터 다시 요구했다 — 사용자가 실제로 각도를 잘 유지하고
+// 있어도 홀드 링이 채워지다 말다를 반복하며 좀처럼 완료되지 않는 체감으로 이어진다. 각도
+// 임계값(45도)이나 close-up 안내 범위, 화면비 문제는 이미 이전 라운드들에서 검증·수정된
+// 사항이라 다시 건드리지 않고, 이번엔 짧은 끊김을 흡수하는 유예 시간을 둔다.
+const TRACKING_GRACE_MS = 250;
+
 export class CaptureFlow {
   /**
    * @param {import('./faceEngine.js').FaceEngine} faceEngine
@@ -91,6 +102,7 @@ export class CaptureFlow {
     this.running = false;
     this.stepIndex = 0;
     this.holdStart = null;
+    this.lastInTargetAt = null;
     this.captured = {};
     this.ctx = {};
     this._rafId = null;
@@ -106,6 +118,7 @@ export class CaptureFlow {
     this.running = true;
     this.stepIndex = 0;
     this.holdStart = null;
+    this.lastInTargetAt = null;
     this.captured = {};
     this.ctx = {};
     // 매 세션 시작 시 원본(STEP_DEFS)에서 다시 복제해, 이전 세션이 덮어썼을 수 있는
@@ -136,19 +149,34 @@ export class CaptureFlow {
     const result = this.faceEngine.detectForVideo(video, now);
     const step = this.stepDefs[this.stepIndex];
 
-    if (!result || !result.pose) {
-      this.holdStart = null;
-      this.callbacks.onFrame?.({ stepIndex: this.stepIndex, step, pose: null, holdRatio: 0, faceDetected: false, faceSizeRatio: null });
+    if (!result) {
+      // 랜드마크 자체가 안 잡힌 경우(얼굴이 화면에 없거나 완전히 가려짐)에만 "얼굴 인식 안 됨"
+      // 신호를 보낸다 — faceDetected:false는 main.js의 3초 후 no-face-hint 노출로 이어지므로,
+      // 아래(랜드마크는 있지만 pose 행렬만 잠깐 비는 경우)와는 구분해야 오인 안내를 피한다.
+      this._registerMiss(now);
+      this.callbacks.onFrame?.({ stepIndex: this.stepIndex, step, pose: null, holdRatio: this._holdRatio(step, now), faceDetected: false, faceSizeRatio: null });
       this._loop();
       return;
     }
 
     const faceSizeRatio = estimateFaceSizeRatio(result.landmarks);
+
+    if (!result.pose) {
+      // 랜드마크는 잡혔는데 자세 추정(facialTransformationMatrix)만 비는 경우 — 옆모습에
+      // 가까운 각도에서 한두 프레임 정도 흔히 발생한다(아래 TRACKING_GRACE_MS 설명 참고).
+      // 얼굴 자체는 인식되고 있으므로 faceDetected는 true로 보고한다.
+      this._registerMiss(now);
+      this.callbacks.onFrame?.({ stepIndex: this.stepIndex, step, pose: null, holdRatio: this._holdRatio(step, now), faceDetected: true, faceSizeRatio });
+      this._loop();
+      return;
+    }
+
     const blinking = isBlinking(result.blendshapes);
     const inTarget = !blinking && step.isTarget(result.pose, this.ctx);
 
     if (inTarget) {
       if (this.holdStart == null) this.holdStart = now;
+      this.lastInTargetAt = now;
       const held = now - this.holdStart;
       const holdRatio = Math.min(1, held / step.holdMs);
       this.callbacks.onFrame?.({ stepIndex: this.stepIndex, step, pose: result.pose, holdRatio, faceDetected: true, faceSizeRatio, ctx: this.ctx });
@@ -159,10 +187,26 @@ export class CaptureFlow {
         this._loop();
       }
     } else {
-      this.holdStart = null;
-      this.callbacks.onFrame?.({ stepIndex: this.stepIndex, step, pose: result.pose, holdRatio: 0, faceDetected: true, faceSizeRatio, ctx: this.ctx });
+      this._registerMiss(now);
+      this.callbacks.onFrame?.({ stepIndex: this.stepIndex, step, pose: result.pose, holdRatio: this._holdRatio(step, now), faceDetected: true, faceSizeRatio, ctx: this.ctx });
       this._loop();
     }
+  }
+
+  // TRACKING_GRACE_MS 안에 목표 자세로 돌아오면 holdStart를 그대로 둬서, 짧은 끊김/흔들림
+  // 동안 지나간 시간도 누적 유지 시간에서 거의 보존되게 한다. 유예 시간을 넘겨서도 계속
+  // 벗어나 있으면 그때 가서 holdStart를 비워 처음부터 다시 측정한다.
+  _registerMiss(now) {
+    if (this.holdStart == null) return;
+    if (this.lastInTargetAt != null && now - this.lastInTargetAt > TRACKING_GRACE_MS) {
+      this.holdStart = null;
+      this.lastInTargetAt = null;
+    }
+  }
+
+  _holdRatio(step, now) {
+    if (this.holdStart == null) return 0;
+    return Math.min(1, (now - this.holdStart) / step.holdMs);
   }
 
   _captureStep(step, result) {
@@ -213,6 +257,7 @@ export class CaptureFlow {
       screenDir,
     });
     this.holdStart = null;
+    this.lastInTargetAt = null;
     this.stepIndex += 1;
 
     if (this.stepIndex >= this.stepDefs.length) {
